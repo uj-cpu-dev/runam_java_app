@@ -2,7 +2,7 @@ name: Build, Push & Deploy (Java 24 + MongoDB)
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
 
 env:
   AWS_REGION: us-east-1
@@ -60,7 +60,6 @@ jobs:
       - name: Push to ECR
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }}
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
 
   deploy:
     needs: build-and-push

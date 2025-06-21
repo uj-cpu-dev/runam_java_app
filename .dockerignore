@@ -1,0 +1,37 @@
+# Ignore Git-related files
+.git
+.gitignore
+
+# Ignore IDE configuration files
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+
+# Ignore Maven build output directory
+# The 'target/' directory is where Maven puts compiled classes and the final JAR.
+# We explicitly copy the JAR from the builder stage, so we don't need to send this directory from local.
+target/
+
+# Maven wrapper files (optional, but good practice to exclude if not needed for runtime)
+.mvn/wrapper/maven-wrapper.jar
+
+# Log files (if generated locally)
+*.log
+logs/
+
+# Temporary files and directories
+tmp/
+temp/
+
+# Docker-specific files (not needed inside the image itself)
+Dockerfile
+.dockerignore
+.env
+
+# Any other specific local files you don't want in the build context
+# For example:
+# .env
+# data/
+# test-data/
