@@ -134,6 +134,7 @@ jobs:
           docker run -d \
             --name $CONTAINER_NAME \
             -p $APP_PORT:$APP_PORT \
+            --network runam-net \
             -e MONGODB_URL="$MONGODB_URL" \
             -e SPRING_DATA_MONGODB_URI="$SPRING_DATA_MONGODB_URI" \
             -e SPRING_DATA_MONGODB_DATABASE="$MONGODB_DATABASE" \
