@@ -100,11 +100,11 @@ jobs:
         env:
           MONGODB_URL: ${{ secrets.MONGODB_URL }}
           SPRING_DATA_MONGODB_URI: "${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin"
+          STARTUP_TIMEOUT: "180"
         run: |
           set -e
           echo "Starting deployment to EC2 instance..."
-          
-          # Prepare deployment script
+
           DEPLOY_SCRIPT=$(cat << 'EOF'
           set -e
           echo "🔐 Logging into ECR..."
@@ -126,50 +126,57 @@ jobs:
             exit 1
           }
 
-          echo "🚀 Starting new container with these environment variables:"
-          echo " - MONGODB_URL: $MONGODB_URL"
-          echo " - SPRING_DATA_MONGODB_URI: $SPRING_DATA_MONGODB_URI"
-          echo " - SPRING_DATA_MONGODB_DATABASE: $MONGODB_DATABASE"
-
+          echo "🚀 Starting new container..."
           docker run -d \
             --name $CONTAINER_NAME \
             -p $APP_PORT:$APP_PORT \
-            --network runam-net \
             -e MONGODB_URL="$MONGODB_URL" \
             -e SPRING_DATA_MONGODB_URI="$SPRING_DATA_MONGODB_URI" \
             -e SPRING_DATA_MONGODB_DATABASE="$MONGODB_DATABASE" \
+            -e MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED=true \
+            -e MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always \
             --restart unless-stopped \
             $IMAGE_TAG || {
             echo "❌ Container startup failed"
             exit 1
           }
 
-          echo "⏳ Waiting for application to start (30 seconds)..."
-          sleep 30
+          echo "⏳ Waiting for application to start (max $STARTUP_TIMEOUT seconds)..."
 
-          echo "🏥 Performing health check..."
-          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$APP_PORT/actuator/health || true)
-          
-          if [ "$HEALTH_STATUS" = "200" ]; then
-            echo "✅ Health check passed - application is running"
-            echo "📜 Container logs:"
-            docker logs $CONTAINER_NAME --tail 50
-          else
-            echo "❌ Health check failed (Status: $HEALTH_STATUS)"
-            echo "🔍 Last 100 lines of logs:"
-            docker logs $CONTAINER_NAME --tail 100
+          # Wait for application to be fully ready
+          START_TIME=$(date +%s)
+          TIMEOUT=$STARTUP_TIMEOUT
+          HEALTHY=false
+
+          while [ $(($(date +%s) - $START_TIME)) -lt $TIMEOUT ]; do
+            if curl -s -f http://localhost:$APP_PORT/actuator/health | grep -q '"status":"UP"'; then
+              HEALTHY=true
+              break
+            fi
+            echo "⌛ Application not ready yet, waiting 5 seconds..."
+            sleep 5
+          done
+
+          if [ "$HEALTHY" = false ]; then
+            echo "❌ Health check failed after $TIMEOUT seconds"
+            echo "🔍 Last 200 lines of logs:"
+            docker logs $CONTAINER_NAME --tail 200
             exit 1
           fi
+
+          echo "✅ Health check passed - application is running"
+          echo "📜 Container logs:"
+          docker logs $CONTAINER_NAME --tail 50
           EOF
           )
 
-          # Execute deployment script on EC2
           ssh -o StrictHostKeyChecking=no \
             ubuntu@${{ secrets.EC2_PUBLIC_IP }} \
             "AWS_REGION=${{ env.AWS_REGION }} \
              AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }} \
              CONTAINER_NAME=${{ env.CONTAINER_NAME }} \
              APP_PORT=${{ env.APP_PORT }} \
+             STARTUP_TIMEOUT=${{ env.STARTUP_TIMEOUT }} \
              IMAGE_TAG=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} \
              MONGODB_URL='$MONGODB_URL' \
              SPRING_DATA_MONGODB_URI='$SPRING_DATA_MONGODB_URI' \
