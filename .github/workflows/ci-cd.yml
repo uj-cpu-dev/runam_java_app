@@ -85,18 +85,47 @@ jobs:
         env:
           MONGODB_URL: ${{ secrets.MONGODB_URL }}
         run: |
+          echo "🔄 Starting deployment to EC2..."
           ssh -o StrictHostKeyChecking=no \
             ubuntu@${{ secrets.EC2_PUBLIC_IP }} \
-            "docker login -u AWS -p $(aws ecr get-login-password --region ${{ env.AWS_REGION }}) ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com && \
-            docker stop ${{ env.CONTAINER_NAME }} || true && \
-            docker rm ${{ env.CONTAINER_NAME }} || true && \
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} && \
+            "
+            # 1. Docker Login
+            echo '🔐 Logging into ECR...'
+            docker login -u AWS -p $(aws ecr get-login-password --region ${{ env.AWS_REGION }}) ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com || { echo '❌ ECR login failed'; exit 1; }
+
+            # 2. Stop old container
+            echo '🛑 Stopping existing container...'
+            docker stop ${{ env.CONTAINER_NAME }} || echo '⚠️ No running container to stop'
+
+            # 3. Remove old container
+            echo '🗑️ Removing old container...'
+            docker rm ${{ env.CONTAINER_NAME }} || echo '⚠️ No container to remove'
+
+            # 4. Pull new image
+            echo '📥 Pulling new Docker image...'
+            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} || { echo '❌ Image pull failed'; exit 1; }
+
+            # 5. Run new container with debug info
+            echo '🚀 Starting new container...'
+            echo 'ℹ️ Using MONGODB_URL: $MONGODB_URL'
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
               -e MONGODB_URL='$MONGODB_URL' \
               -e SPRING_DATA_MONGODB_URI='$MONGODB_URL' \
+              -e SPRING_DATA_MONGODB_DATABASE=test \
               --restart unless-stopped \
-              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} && \
-            sleep 10 && \
-            curl -s http://localhost:${{ env.APP_PORT }}/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} || { echo '❌ Container startup failed'; exit 1; }
+
+            # 6. Health check
+            echo '🏥 Performing health check...'
+            sleep 10
+            curl -v http://localhost:${{ env.APP_PORT }}/actuator/health
+            if ! curl -s http://localhost:${{ env.APP_PORT }}/actuator/health | grep -q '\"status\":\"UP\"'; then
+              echo '🔍 Checking container logs...'
+              docker logs ${{ env.CONTAINER_NAME }}
+              echo '❌ Health check failed'
+              exit 1
+            fi
+            echo '✅ Deployment successful!'
+            "
