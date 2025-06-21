@@ -17,6 +17,10 @@ target/
 # Maven wrapper files (optional, but good practice to exclude if not needed for runtime)
 .mvn/wrapper/maven-wrapper.jar
 
+
+:wq
+
+
 # Log files (if generated locally)
 *.log
 logs/
