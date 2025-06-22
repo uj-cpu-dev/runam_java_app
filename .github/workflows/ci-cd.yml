@@ -1,8 +1,9 @@
-name: Build, Push & Deploy (Java 24 + MongoDB)
+name: Build, Push to ECR & Deploy to EC2 (Java)
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   id-token: write
@@ -13,7 +14,7 @@ env:
   ECR_REPOSITORY: runam_java
   CONTAINER_NAME: run-am-java-app
   APP_PORT: 8080
-  MONGODB_DATABASE: test  # Added database name as environment variable
+  MONGODB_DATABASE: test
 
 jobs:
   build-and-push:
@@ -35,50 +36,36 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github_access_role
 
       - name: Login to Amazon ECR
-        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set image tag
         id: set-tag
         run: |
-          TAG=$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA:0:7}
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using image tag: $TAG"
+          TAG_SHA=$(echo "${{ github.sha }}" | cut -c1-6)
+          echo "image_tag=feature-${{ github.ref_name }}-$TAG_SHA" >> $GITHUB_OUTPUT
 
       - name: Build with Maven
         run: |
           ./mvnw clean package -DskipTests
           cp target/*.jar target/app.jar
-          echo "JAR file built successfully"
 
-      - name: Build and tag Docker image
+      - name: Build Docker image
         run: |
-          set -e  # Exit immediately on error
-          echo "Building Docker image..."
-          
-          FULL_IMAGE_TAG="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }}"
-          
           docker build \
-            --build-arg MONGODB_URL="${{ secrets.MONGODB_URL }}" \
-            --build-arg SPRING_DATA_MONGODB_DATABASE="${{ env.MONGODB_DATABASE }}" \
-            -t "$FULL_IMAGE_TAG" .
+            --build-arg MONGODB_URL=${{ secrets.MONGODB_URL }} \
+            --build-arg SPRING_DATA_MONGODB_DATABASE=${{ env.MONGODB_DATABASE }} \
+            -t ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }} .
           
-          echo "Tagging as latest..."
-          docker tag "$FULL_IMAGE_TAG" \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+          docker tag \
+            ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }} \
+            ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }}
 
       - name: Push to ECR
         run: |
-          set -e
-          echo "Pushing images to ECR..."
-          
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }}
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
-          
-          echo "Images pushed successfully"
+          docker push ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ steps.set-tag.outputs.image_tag }}
 
   deploy:
     needs: build-and-push
@@ -88,90 +75,78 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github_access_role
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.EC2_SSH_KEY }}
-          known_hosts: ${{ secrets.EC2_KNOWN_HOSTS }}
+      - name: Get EC2 Public IP
+        run: |
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          echo "EC2_PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
 
       - name: Deploy to EC2
-        env:
-          MONGODB_URL: ${{ secrets.MONGODB_URL }}
-          SPRING_DATA_MONGODB_URI: "${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin"
-        run: |
-          set -e
-          echo "Starting deployment to EC2 instance..."
-          
-          # Prepare deployment script
-          DEPLOY_SCRIPT=$(cat << 'EOF'
-          set -e
-          echo "🔐 Logging into ECR..."
-          aws ecr get-login-password --region $AWS_REGION | \
-            docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com || {
-            echo "❌ ECR login failed"
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.EC2_PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            
+            IMAGE=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}
+            
+            # --- AWS CLI & Docker Login Setup ---
+            command -v unzip >/dev/null || sudo apt-get update && sudo apt-get install -y unzip curl
+            
+            command -v aws >/dev/null || {
+                echo "AWS CLI v2 not found, installing..."
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                unzip awscliv2.zip
+                sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+                rm -rf awscliv2.zip aws/
+            }
+            
+            mkdir -p ~/.aws
+            cat <<EOF > ~/.aws/config
+            [default]
+            region = ${{ env.AWS_REGION }}
+            output = json
+            EOF
+            
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+                docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+            
+            # --- Container Deployment ---
+            echo "Stopping and removing existing container (if any)..."
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
+            
+            echo "Pulling new Docker image: $IMAGE"
+            docker pull $IMAGE
+            
+            echo "Running new container on port ${{ env.APP_PORT }}"
+            docker run -d \
+                --name ${{ env.CONTAINER_NAME }} \
+                -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+                -e MONGODB_URL='${{ secrets.MONGODB_URL }}' \
+                -e SPRING_DATA_MONGODB_URI='${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin' \
+                -e SPRING_DATA_MONGODB_DATABASE='${{ env.MONGODB_DATABASE }}' \
+                --restart unless-stopped \
+                $IMAGE
+            
+            # --- Enhanced Health Check ---
+            echo "Starting health check for ${{ env.CONTAINER_NAME }}..."
+            for i in {1..20}; do
+                if curl -s -f http://localhost:${{ env.APP_PORT }}/actuator/health | grep -q '"status":"UP"'; then
+                echo "✅ Health check passed!"
+                docker logs ${{ env.CONTAINER_NAME }} --tail 20
+                exit 0
+                fi
+                echo "Attempt $i/20: Health check failed, retrying in 10s..."
+                sleep 10
+            done
+            
+            echo "❌ Health check failed after 20 attempts"
+            docker logs ${{ env.CONTAINER_NAME }}
             exit 1
-          }
-
-          echo "🛑 Stopping existing container..."
-          docker stop $CONTAINER_NAME >/dev/null 2>&1 || echo "ℹ️ No running container to stop"
-
-          echo "🗑️ Removing old container..."
-          docker rm $CONTAINER_NAME >/dev/null 2>&1 || echo "ℹ️ No container to remove"
-
-          echo "📥 Pulling new Docker image..."
-          docker pull $IMAGE_TAG || {
-            echo "❌ Image pull failed"
-            exit 1
-          }
-
-          echo "🚀 Starting new container with these environment variables:"
-          echo " - MONGODB_URL: $MONGODB_URL"
-          echo " - SPRING_DATA_MONGODB_URI: $SPRING_DATA_MONGODB_URI"
-          echo " - SPRING_DATA_MONGODB_DATABASE: $MONGODB_DATABASE"
-
-          docker run -d \
-            --name $CONTAINER_NAME \
-            -p $APP_PORT:$APP_PORT \
-            --network runam-net \
-            -e MONGODB_URL="$MONGODB_URL" \
-            -e SPRING_DATA_MONGODB_URI="$SPRING_DATA_MONGODB_URI" \
-            -e SPRING_DATA_MONGODB_DATABASE="$MONGODB_DATABASE" \
-            --restart unless-stopped \
-            $IMAGE_TAG || {
-            echo "❌ Container startup failed"
-            exit 1
-          }
-
-          echo "⏳ Waiting for application to start (30 seconds)..."
-          sleep 30
-
-          echo "🏥 Performing health check..."
-          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$APP_PORT/actuator/health || true)
-          
-          if [ "$HEALTH_STATUS" = "200" ]; then
-            echo "✅ Health check passed - application is running"
-            echo "📜 Container logs:"
-            docker logs $CONTAINER_NAME --tail 50
-          else
-            echo "❌ Health check failed (Status: $HEALTH_STATUS)"
-            echo "🔍 Last 100 lines of logs:"
-            docker logs $CONTAINER_NAME --tail 100
-            exit 1
-          fi
-          EOF
-          )
-
-          # Execute deployment script on EC2
-          ssh -o StrictHostKeyChecking=no \
-            ubuntu@${{ secrets.EC2_PUBLIC_IP }} \
-            "AWS_REGION=${{ env.AWS_REGION }} \
-             AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }} \
-             CONTAINER_NAME=${{ env.CONTAINER_NAME }} \
-             APP_PORT=${{ env.APP_PORT }} \
-             IMAGE_TAG=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }} \
-             MONGODB_URL='$MONGODB_URL' \
-             SPRING_DATA_MONGODB_URI='$SPRING_DATA_MONGODB_URI' \
-             MONGODB_DATABASE=${{ env.MONGODB_DATABASE }} \
-             bash -s" <<< "$DEPLOY_SCRIPT"
