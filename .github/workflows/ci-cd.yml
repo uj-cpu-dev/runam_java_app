@@ -15,6 +15,7 @@ env:
   CONTAINER_NAME: run-am-java-app
   APP_PORT: 8080
   MONGODB_DATABASE: test
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
 
 jobs:
   build-and-push:
