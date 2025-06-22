@@ -129,6 +129,7 @@ jobs:
             echo "Running new container on port ${{ env.APP_PORT }}"
             docker run -d \
                 --name ${{ env.CONTAINER_NAME }} \
+                --network runam-net
                 -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
                 -e MONGODB_URL='${{ secrets.MONGODB_URL }}' \
                 -e SPRING_DATA_MONGODB_URI='${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin' \
