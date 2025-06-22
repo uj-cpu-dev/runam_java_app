@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import rum_am_app.run_am.dto.UserResponse;
 import rum_am_app.run_am.dto.UserSignupRequest;
 import rum_am_app.run_am.exception.UserAlreadyExistsException;
-import rum_am_app.run_am.model.User;
 import rum_am_app.run_am.service.UserService;
 
 @RestController
@@ -32,7 +31,7 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.CREATED).body(newUser);
         } catch (UserAlreadyExistsException e) {
             logger.warn("Signup failed - email already exists: {}", request.getEmail());
-            throw e; // Let GlobalExceptionHandler process it
+            throw e;
         }
     }
 }
