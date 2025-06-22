@@ -21,6 +21,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf.disable())
@@ -38,7 +39,7 @@ public class SecurityConfig {
         return args -> {
             try {
                 String dbName = mongoTemplate.getDb().getName();
-                logger.info("✅ Successfully connected to MongoDB database: {}", dbName);
+                    logger.info("✅ Successfully connected to MongoDB database: {}", dbName);
                 logger.debug("Available collections: {}", mongoTemplate.getCollectionNames());
 
                 // Test connection with a ping command
