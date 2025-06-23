@@ -2,7 +2,6 @@ package rum_am_app.run_am.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import rum_am_app.run_am.dto.ProfileResponse;
 import rum_am_app.run_am.dto.UpdateProfileRequest;
@@ -19,7 +18,6 @@ import java.time.format.DateTimeFormatter;
 public class ProfileService {
 
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
 
     public ProfileResponse getProfile(String userId) {
         User user = userRepository.findById(userId)
