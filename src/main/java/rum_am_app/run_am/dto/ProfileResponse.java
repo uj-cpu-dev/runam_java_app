@@ -1,0 +1,24 @@
+package rum_am_app.run_am.dto;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class ProfileResponse {
+
+    private String id;
+    private String name;
+    private String email;
+    private String phone;
+    private String location;
+    private String bio;
+    private String joinDate;
+    private String avatarUrl;
+    private double rating;
+    private int itemsSold;
+    private int activeListings;
+    private double responseRate;
+    private boolean emailVerified;
+    private boolean phoneVerified;
+}

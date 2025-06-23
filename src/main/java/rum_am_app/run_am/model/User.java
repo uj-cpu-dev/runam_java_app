@@ -8,6 +8,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -22,4 +24,26 @@ public class User {
     private String email;
     private String password;
     private Instant joinDate;
+
+    private String phone;
+    private String location;
+    private String bio;
+    private String avatarUrl;
+
+    // Profile statistics
+    private double rating;
+    private int itemsSold;
+    private int activeListings;
+    private double responseRate;
+
+    // Verification status
+    private boolean emailVerified;
+    private boolean phoneVerified;
+
+    // Social media links (optional)
+    private Map<String, String> socialLinks;
+
+    // Preferences
+    private List<String> favoriteCategories;
+
 }
