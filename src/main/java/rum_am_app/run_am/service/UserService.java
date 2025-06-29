@@ -5,25 +5,35 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import rum_am_app.run_am.dto.UserLoginRequest;
-import rum_am_app.run_am.dto.UserResponse;
-import rum_am_app.run_am.dto.UserSignupRequest;
-import rum_am_app.run_am.dto.UserUpdateRequest;
+import rum_am_app.run_am.dtorequest.UserLoginRequest;
+import rum_am_app.run_am.dtoresponse.ProfileResponse;
+import rum_am_app.run_am.dtoresponse.UserAdResponse;
+import rum_am_app.run_am.dtoresponse.UserLoginResponse;
+import rum_am_app.run_am.dtoresponse.UserResponse;
+import rum_am_app.run_am.dtorequest.UserSignupRequest;
+import rum_am_app.run_am.dtorequest.UserUpdateRequest;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.User;
+import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.repository.UserRepository;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final ProfileService profileService;
+    private final UserAdService userAdService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, ProfileService profileService, UserAdService userAdService) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
+        this.profileService = profileService;
+        this.userAdService = userAdService;
     }
 
     public UserResponse register(UserSignupRequest request) {
@@ -48,11 +58,41 @@ public class UserService {
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new ApiException("Invalid password", HttpStatus.UNAUTHORIZED, "INVALID_PASSWORD");
+            throw new ApiException("Invalid credentials", HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
 
         logger.info("User logged in: {}", user.getEmail());
-        return mapToUserResponse(user);
+
+        ProfileResponse profile = ProfileResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .location(user.getLocation())
+                .bio(user.getBio())
+                .joinDate(user.getJoinDate().toString())
+                .avatarUrl(user.getAvatarUrl())
+                .rating(user.getRating())
+                .itemsSold(user.getItemsSold())
+                .activeListings(user.getActiveListings())
+                .responseRate(user.getResponseRate())
+                .emailVerified(user.isEmailVerified())
+                .phoneVerified(user.isPhoneVerified())
+                .reviews(user.getReviews())
+                .isQuickResponder(user.isQuickResponder())
+                .isTopSeller(user.isTopSeller())
+                .build();
+
+        List<UserAd> userAds = userAdService.getAllAdsByUserId(user.getId());
+
+        List<UserAdResponse> adResponses = userAds.stream()
+                .map(UserAdResponse::fromEntity)
+                .collect(Collectors.toList());
+
+        return UserResponse.builder()
+                .profile(profile)
+                .ads(adResponses)
+                .build();
     }
 
     public UserResponse updateUser(String userId, UserUpdateRequest request) {
@@ -91,10 +131,6 @@ public class UserService {
 
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .name(user.getName())
-                .createdAt(user.getJoinDate())
                 .build();
     }
 }

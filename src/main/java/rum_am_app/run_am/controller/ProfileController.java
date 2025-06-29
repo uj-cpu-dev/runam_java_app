@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import rum_am_app.run_am.dto.ProfileResponse;
-import rum_am_app.run_am.dto.UpdateProfileRequest;
+import rum_am_app.run_am.dtoresponse.ProfileResponse;
+import rum_am_app.run_am.dtorequest.UpdateProfileRequest;
 import rum_am_app.run_am.service.ProfileService;
 
 @RestController

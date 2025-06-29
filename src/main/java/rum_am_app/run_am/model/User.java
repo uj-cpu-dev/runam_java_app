@@ -46,4 +46,8 @@ public class User {
     // Preferences
     private List<String> favoriteCategories;
 
+    private double reviews;
+    private boolean isQuickResponder;
+    private boolean isTopSeller;
+
 }

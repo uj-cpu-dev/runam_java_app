@@ -3,7 +3,7 @@ name: Build, Push to ECR & Deploy to EC2 (Java)
 on:
   push:
     branches:
-      - main
+      - develop
 
 permissions:
   id-token: write

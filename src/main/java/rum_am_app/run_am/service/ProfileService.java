@@ -3,8 +3,8 @@ package rum_am_app.run_am.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import rum_am_app.run_am.dto.ProfileResponse;
-import rum_am_app.run_am.dto.UpdateProfileRequest;
+import rum_am_app.run_am.dtoresponse.ProfileResponse;
+import rum_am_app.run_am.dtorequest.UpdateProfileRequest;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.User;
 import rum_am_app.run_am.repository.UserRepository;
@@ -12,6 +12,7 @@ import rum_am_app.run_am.repository.UserRepository;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +40,7 @@ public class ProfileService {
                 .emailVerified(user.isEmailVerified())
                 .phoneVerified(user.isPhoneVerified())
                 .build();
+
     }
 
     public ProfileResponse updateProfile(String userId, UpdateProfileRequest request) {
@@ -91,6 +93,9 @@ public class ProfileService {
                 .responseRate(user.getResponseRate())
                 .emailVerified(user.isEmailVerified())
                 .phoneVerified(user.isPhoneVerified())
+                .isQuickResponder(user.isQuickResponder())
+                .isTopSeller(user.isTopSeller())
+                .reviews(user.getReviews())
                 .build();
     }
 

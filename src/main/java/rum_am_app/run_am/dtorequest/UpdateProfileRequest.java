@@ -1,4 +1,4 @@
-package rum_am_app.run_am.dto;
+package rum_am_app.run_am.dtorequest;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;

@@ -1,4 +1,4 @@
-package rum_am_app.run_am.dto;
+package rum_am_app.run_am.dtoresponse;
 
 import lombok.Builder;
 import lombok.Data;
@@ -21,4 +21,7 @@ public class ProfileResponse {
     private double responseRate;
     private boolean emailVerified;
     private boolean phoneVerified;
+    private double reviews;
+    private boolean isQuickResponder;
+    private boolean isTopSeller;
 }
