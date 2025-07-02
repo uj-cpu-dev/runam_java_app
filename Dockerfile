@@ -1,24 +1,19 @@
-
-FROM eclipse-temurin:24-jdk-alpine
-
+FROM eclipse-temurin:24-jdk-alpine AS builder
 WORKDIR /app
+COPY . .
+RUN ./mvnw clean package -DskipTests
 
-# Install git for spring-devtools to work
-RUN apk add --no-cache git
+FROM eclipse-temurin:24-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
 
-# Only copy the files needed for Maven to download dependencies
-COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
+ARG MONGODB_URL
+ARG SPRING_DATA_MONGODB_DATABASE
+ENV SPRING_DATA_MONGODB_URI=${MONGODB_URL}/${SPRING_DATA_MONGODB_DATABASE}?authSource=admin
+ENV AWS_S3_BUCKET=""
+ENV AWS_REGION=""
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline
-
-# Copy source code
-COPY src src
-
-# Build the application
-RUN ./mvnw package -DskipTests
-
-# For development, we'll run through mvn spring-boot:run
-CMD ["./mvnw", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"]
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]

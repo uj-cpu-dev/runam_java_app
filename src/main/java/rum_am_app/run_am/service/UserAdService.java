@@ -2,16 +2,24 @@ package rum_am_app.run_am.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import rum_am_app.run_am.dtoresponse.ProfileResponse;
+import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
+import rum_am_app.run_am.model.ProfilePreview;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.repository.UserAdRepository;
+import rum_am_app.run_am.repository.UserRepository;
 import rum_am_app.run_am.util.AdUpdateHelper;
 import rum_am_app.run_am.util.AdValidator;
 import rum_am_app.run_am.util.ImageUploader;
+import rum_am_app.run_am.model.User;
 
 import java.time.Instant;
 import java.util.*;
@@ -29,6 +37,10 @@ public class UserAdService {
     private final AdUpdateHelper adUpdateHelper;
 
     private final ImageUploader imageUploader;
+
+    private final ProfileService profileService;
+
+    private final UserRepository userRepository;
 
     public List<UserAd> getUserAdsByStatus(String userId, UserAd.AdStatus status) {
         return userAdRepository.findByUserIdAndStatus(userId, status);
@@ -90,31 +102,42 @@ public class UserAdService {
         userAd.setViews(0);
         userAd.setMessages(0);
         userAd.setDatePosted(Instant.now());
-        userAd.setStatus(UserAd.AdStatus.ACTIVE);
+        userAd.setUserId(userAd.getUserId());
+
+        // Respect draft status if provided; default to ACTIVE otherwise
+        if (userAd.getStatus() == null) {
+            userAd.setStatus(UserAd.AdStatus.ACTIVE);
+        }
+
         return userAd;
     }
 
     public UserAd updateAdWithImages(String id, UserAd updatedAd, List<MultipartFile> newImages) {
-        log.info("Updating ad with ID={}", id); // Single important log
+        log.info("Updating ad with ID={}", id);
 
         UserAd existingAd = userAdRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Ad not found with id-" + id, HttpStatus.BAD_REQUEST, "AD_NOT_FOUND"));
 
-        // Update basic fields
+        boolean publishingAd = (updatedAd.getStatus() == UserAd.AdStatus.ACTIVE || updatedAd.getStatus() == UserAd.AdStatus.SOLD)
+                && (existingAd.getStatus() == UserAd.AdStatus.DRAFT);
+
+        if (publishingAd) {
+            adValidator.validateAdCreation(updatedAd);
+        }
+
         adUpdateHelper.updateBasicFields(existingAd, updatedAd);
 
-        // Process images
         List<UserAd.ImageData> finalImages = new ArrayList<>();
         Set<String> imagesToDelete = adUpdateHelper.processImageUpdates(
                 existingAd, updatedAd, newImages, finalImages);
-
         existingAd.setImages(finalImages);
 
-        // Handle status changes
         if (updatedAd.getStatus() == UserAd.AdStatus.SOLD &&
                 existingAd.getStatus() != UserAd.AdStatus.SOLD) {
             existingAd.setStatus(UserAd.AdStatus.SOLD);
             existingAd.setDateSold(Instant.now());
+        } else {
+            existingAd.setStatus(updatedAd.getStatus()); // Includes DRAFT or ACTIVE updates
         }
 
         UserAd savedAd = userAdRepository.save(existingAd);
@@ -156,5 +179,58 @@ public class UserAdService {
                 .forEach(imageData -> imageUploader.deleteImageFromS3(imageData.getUrl()));
 
         userAdRepository.deleteAll(userAds);
+    }
+
+    public List<RecentActiveAdResponse> getRecentActiveAds() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "datePosted"));
+        List<UserAd> activeAds = userAdRepository.findTop10ByStatusActiveOrderByDatePostedDesc(pageable);
+
+        // Fetch all user profiles at once
+        Set<String> userIds = activeAds.stream()
+                .map(UserAd::getUserId)
+                .collect(Collectors.toSet());
+
+        Map<String, ProfileResponse> userProfiles = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(
+                        User::getId,
+                        user -> ProfileResponse.builder()
+                                .name(user.getName())
+                                .avatarUrl(user.getAvatarUrl())
+                                .rating(user.getRating())
+                                .itemsSold(user.getItemsSold())
+                                .responseRate(user.getResponseRate())
+                                .joinDate(String.valueOf(user.getJoinDate()))
+                                .build()
+                ));
+
+        return activeAds.stream()
+                .map(ad -> {
+                    ProfileResponse profile = profileService.getProfile(ad.getUserId());
+
+                    return RecentActiveAdResponse.builder()
+                            .id(ad.getId())
+                            .title(ad.getTitle())
+                            .price(ad.getPrice())
+                            .category(ad.getCategory())
+                            .description(ad.getDescription())
+                            .location(ad.getLocation())
+                            .condition(ad.getCondition())
+                            .images(ad.getImages())
+                            .views(ad.getViews())
+                            .messages(ad.getMessages())
+                            .datePosted(ad.getDatePosted())
+                            .status(ad.getStatus())
+                            .dateSold(ad.getDateSold())
+                            .seller(ProfilePreview.builder()
+                                    .name(profile.getName())
+                                    .avatarUrl(profile.getAvatarUrl())
+                                    .rating(profile.getRating())
+                                    .itemsSold(profile.getItemsSold())
+                                    .responseRate(profile.getResponseRate())
+                                    .joinDate(profile.getJoinDate())
+                                    .build())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 }

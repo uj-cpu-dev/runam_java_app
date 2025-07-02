@@ -8,11 +8,16 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
+import rum_am_app.run_am.dtoresponse.UserAdResponse;
+import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
+import rum_am_app.run_am.service.FavoriteService;
 import rum_am_app.run_am.service.UserAdService;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -22,6 +27,8 @@ public class UserAdController {
     private static final Logger logger = LoggerFactory.getLogger(UserAdController.class);
 
     private final UserAdService userAdService;
+
+    private final FavoriteService favoriteService;
 
     @GetMapping("/user/{userId}/userAds")
     public ResponseEntity<?> getAllUserAds(@PathVariable String userId) {
@@ -58,11 +65,9 @@ public class UserAdController {
             @RequestPart UserAd userAd,
             @RequestPart(required = false) List<MultipartFile> images) {
 
-        logger.info("Received request to create ad. User ID: {}, Ad ID: {}, Images count: {}",
-                userAd.getUserId(), userAd.getId(), images != null ? images.size() : 0);
-
         if (images != null) {
-            images.forEach(img -> logger.info("Image Name: {}, Size: {}, Type: {}",
+            images.forEach(img ->
+                    logger.info("Image Name: {}, Size: {}, Type: {}",
                     img.getOriginalFilename(), img.getSize(), img.getContentType()));
         }
 
@@ -101,6 +106,51 @@ public class UserAdController {
                 "message",
                 String.format("All ads deleted successfully for user %s.", userId)
         ));
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<List<RecentActiveAdResponse>> getRecentActiveAds() {
+        List<RecentActiveAdResponse> recentAds = userAdService.getRecentActiveAds();
+        return ResponseEntity.ok(recentAds);
+    }
+
+    @GetMapping("/{userId}/favorites")
+    public List<RecentActiveAdResponse> getUserFavorites(
+            @PathVariable String userId) {
+        return favoriteService.getUserFavorites(userId);
+    }
+
+    @PostMapping("/{userId}/{adId}/toggle-favorites")
+    public ResponseEntity<?> toggleFavorite(
+            @PathVariable String userId,
+            @PathVariable String adId) {
+        try {
+            RecentActiveAdResponse response = favoriteService.toggleFavorite(userId, adId);
+
+            String message = (response.getFavoritedAt() != null)
+                    ? "Ad successfully added to your favorites"
+                    : "Ad removed from your favorites";
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", message
+                    )
+            );
+        } catch (ApiException ex) {
+            return ResponseEntity.status(ex.getStatus()).body(
+                    Map.of(
+                            "error", ex.getMessage(),
+                            "code", ex.getErrorCode()
+                    )
+            );
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    Map.of(
+                            "error", "An unexpected error occurred",
+                            "details", ex.getMessage()
+                    )
+            );
+        }
     }
 
 }

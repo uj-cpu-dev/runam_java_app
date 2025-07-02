@@ -2,6 +2,7 @@ package rum_am_app.run_am.dtoresponse;
 
 import lombok.Builder;
 import lombok.Data;
+import rum_am_app.run_am.model.UserSettings;
 
 import java.util.List;
 
@@ -9,5 +10,7 @@ import java.util.List;
 @Builder
 public class UserResponse {
     private ProfileResponse profile;
-    private List<UserAdResponse> ads; // 👈 change to List
+    private List<UserAdResponse> ads;
+    private List<RecentActiveAdResponse> favorites;
+    private UserSettings settings;
 }

@@ -6,15 +6,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
-import rum_am_app.run_am.dtoresponse.ProfileResponse;
-import rum_am_app.run_am.dtoresponse.UserAdResponse;
-import rum_am_app.run_am.dtoresponse.UserLoginResponse;
-import rum_am_app.run_am.dtoresponse.UserResponse;
+import rum_am_app.run_am.dtoresponse.*;
 import rum_am_app.run_am.dtorequest.UserSignupRequest;
 import rum_am_app.run_am.dtorequest.UserUpdateRequest;
 import rum_am_app.run_am.exception.ApiException;
+import rum_am_app.run_am.model.Favorite;
 import rum_am_app.run_am.model.User;
 import rum_am_app.run_am.model.UserAd;
+import rum_am_app.run_am.model.UserSettings;
 import rum_am_app.run_am.repository.UserRepository;
 
 import java.time.Instant;
@@ -26,17 +25,19 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-    private final ProfileService profileService;
+    private final FavoriteService favoriteService;
     private final UserAdService userAdService;
+    private final SettingsService settingsService;
 
-    public UserService(UserRepository userRepository, ProfileService profileService, UserAdService userAdService) {
+    public UserService(UserRepository userRepository, UserAdService userAdService, FavoriteService favoriteService, SettingsService settingsService) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
-        this.profileService = profileService;
         this.userAdService = userAdService;
+        this.favoriteService = favoriteService;
+        this.settingsService = settingsService;
     }
 
-    public UserResponse register(UserSignupRequest request) {
+    public void register(UserSignupRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new ApiException("Email already in use", HttpStatus.NOT_FOUND, "EMAIL_ALREADY_IN_USE");
         }
@@ -50,7 +51,7 @@ public class UserService {
         User savedUser = userRepository.save(user);
         logger.info("New user created with ID: {}", savedUser.getId());
 
-        return mapToUserResponse(savedUser);
+        mapToUserResponse(savedUser);
     }
 
     public UserResponse login(UserLoginRequest request) {
@@ -89,9 +90,15 @@ public class UserService {
                 .map(UserAdResponse::fromEntity)
                 .collect(Collectors.toList());
 
+        List<RecentActiveAdResponse> favoriteResponses = favoriteService.getUserFavorites(user.getId());
+
+        UserSettings userSettings = settingsService.getSettings(user.getId());
+
         return UserResponse.builder()
                 .profile(profile)
                 .ads(adResponses)
+                .favorites(favoriteResponses)
+                .settings(userSettings)
                 .build();
     }
 

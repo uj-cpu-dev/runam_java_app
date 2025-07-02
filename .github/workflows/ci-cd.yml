@@ -3,7 +3,7 @@ name: Build, Push to ECR & Deploy to EC2 (Java)
 on:
   push:
     branches:
-      - develop
+      - main
 
 permissions:
   id-token: write
@@ -134,6 +134,10 @@ jobs:
                 -e MONGODB_URL='${{ secrets.MONGODB_URL }}' \
                 -e SPRING_DATA_MONGODB_URI='${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin' \
                 -e SPRING_DATA_MONGODB_DATABASE='${{ env.MONGODB_DATABASE }}' \
+                -e AWS_S3_BUCKET='${{ secrets.AWS_S3_BUCKET }}' \
+                -e AWS_REGION='${{ env.AWS_REGION }}' \
+                -e AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}' \
+                -e AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
                 --restart unless-stopped \
                 $IMAGE
             

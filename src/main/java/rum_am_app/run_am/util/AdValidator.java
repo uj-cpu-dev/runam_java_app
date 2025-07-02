@@ -14,12 +14,22 @@ public class AdValidator {
     private final UserAdRepository userAdRepository;
 
     public void validateAdCreation(UserAd userAd) {
+        // If creating a draft, skip validation
+        if (userAd.getStatus() == UserAd.AdStatus.DRAFT) {
+            return;
+        }
+
+        // Default to ACTIVE if status is null
+        UserAd.AdStatus status = userAd.getStatus() != null
+                ? userAd.getStatus()
+                : UserAd.AdStatus.ACTIVE;
+
         if (userAdRepository.existsByUserIdAndTitleAndPriceAndCategoryAndStatus(
                 userAd.getUserId(),
                 userAd.getTitle(),
                 userAd.getPrice(),
                 userAd.getCategory(),
-                UserAd.AdStatus.ACTIVE
+                status
         )) {
             throw new ApiException(
                     "Duplicate active ad exists",
@@ -27,26 +37,5 @@ public class AdValidator {
                     "DUPLICATE_AD"
             );
         }
-    }
-
-    public void validateAdUpdate(UserAd userAd, String excludeId) {
-        if (userAdRepository.existsByUserIdAndTitleAndPriceAndCategoryAndIdNot(
-                userAd.getUserId(),
-                userAd.getTitle(),
-                userAd.getPrice(),
-                userAd.getCategory(),
-                excludeId
-        )) {
-            throw new ApiException(
-                    "Duplicate active ad exists",
-                    HttpStatus.BAD_REQUEST,
-                    "DUPLICATE_AD"
-            );
-        }
-    }
-
-    public UserAd validateAdExists(String id) {
-        return userAdRepository.findById(id)
-                .orElseThrow(() -> new ApiException("Ad not found", HttpStatus.BAD_REQUEST, "AD_NOT_FOUND"));
     }
 }
