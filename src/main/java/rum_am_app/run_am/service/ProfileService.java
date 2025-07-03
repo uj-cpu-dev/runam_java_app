@@ -7,11 +7,14 @@ import rum_am_app.run_am.dtoresponse.ProfileResponse;
 import rum_am_app.run_am.dtorequest.UpdateProfileRequest;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.User;
+import rum_am_app.run_am.model.UserAd;
+import rum_am_app.run_am.repository.UserAdRepository;
 import rum_am_app.run_am.repository.UserRepository;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 
 @Service
@@ -20,9 +23,13 @@ public class ProfileService {
 
     private final UserRepository userRepository;
 
+    private final UserAdRepository userAdRepository;
+
     public ProfileResponse getProfile(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
+
+        List<UserAd> userAds = userAdRepository.findByUserId(userId);
 
         return ProfileResponse.builder()
                 .id(user.getId())
@@ -35,7 +42,7 @@ public class ProfileService {
                 .avatarUrl(user.getAvatarUrl())
                 .rating(user.getRating())
                 .itemsSold(user.getItemsSold())
-                .activeListings(user.getActiveListings())
+                .activeListings(userAds.size())
                 .responseRate(user.getResponseRate())
                 .emailVerified(user.isEmailVerified())
                 .phoneVerified(user.isPhoneVerified())
