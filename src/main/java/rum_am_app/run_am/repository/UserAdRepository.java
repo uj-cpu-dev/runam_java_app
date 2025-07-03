@@ -21,4 +21,6 @@ public interface UserAdRepository extends MongoRepository<UserAd, String> {
     );
     @Query("{ 'status': 'ACTIVE' }")
     List<UserAd> findTop10ByStatusActiveOrderByDatePostedDesc(Pageable pageable);
+
+    List<UserAd> findByStatus(String status, Pageable pageable);
 }

@@ -153,4 +153,14 @@ public class UserAdController {
         }
     }
 
+    @DeleteMapping("/recent/active")
+    public ResponseEntity<Map<String, String>> deleteRecentActiveAds() {
+        userAdService.deleteAllRecentActiveAds();
+        return ResponseEntity.ok(
+                Map.of(
+                        "message", "All recent ads deleted"
+                )
+        );
+    }
+
 }

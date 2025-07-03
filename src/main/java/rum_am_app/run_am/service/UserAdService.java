@@ -204,4 +204,12 @@ public class UserAdService {
                         .build())
                 .collect(Collectors.toList());
     }
+
+    public void deleteAllRecentActiveAds() {
+        // Fetch top 10 active ads sorted by datePosted DESC
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "datePosted"));
+        List<UserAd> activeAds = userAdRepository.findByStatus("ACTIVE", pageable);
+
+        userAdRepository.deleteAll(activeAds);
+    }
 }
