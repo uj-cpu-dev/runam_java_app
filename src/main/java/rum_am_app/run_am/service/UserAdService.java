@@ -169,6 +169,7 @@ public class UserAdService {
                 imageUploader.deleteImageFromS3(imageData.getUrl()));
         userAdRepository.delete(ad);
     }
+
     @Transactional
     public void deleteAllAdsByUserId(String userId) {
         // Find all ads for the user
@@ -185,52 +186,22 @@ public class UserAdService {
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "datePosted"));
         List<UserAd> activeAds = userAdRepository.findTop10ByStatusActiveOrderByDatePostedDesc(pageable);
 
-        // Fetch all user profiles at once
-        Set<String> userIds = activeAds.stream()
-                .map(UserAd::getUserId)
-                .collect(Collectors.toSet());
-
-        Map<String, ProfileResponse> userProfiles = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(
-                        User::getId,
-                        user -> ProfileResponse.builder()
-                                .name(user.getName())
-                                .avatarUrl(user.getAvatarUrl())
-                                .rating(user.getRating())
-                                .itemsSold(user.getItemsSold())
-                                .responseRate(user.getResponseRate())
-                                .joinDate(String.valueOf(user.getJoinDate()))
-                                .build()
-                ));
-
         return activeAds.stream()
-                .map(ad -> {
-                    ProfileResponse profile = profileService.getProfile(ad.getUserId());
-
-                    return RecentActiveAdResponse.builder()
-                            .id(ad.getId())
-                            .title(ad.getTitle())
-                            .price(ad.getPrice())
-                            .category(ad.getCategory())
-                            .description(ad.getDescription())
-                            .location(ad.getLocation())
-                            .condition(ad.getCondition())
-                            .images(ad.getImages())
-                            .views(ad.getViews())
-                            .messages(ad.getMessages())
-                            .datePosted(ad.getDatePosted())
-                            .status(ad.getStatus())
-                            .dateSold(ad.getDateSold())
-                            .seller(ProfilePreview.builder()
-                                    .name(profile.getName())
-                                    .avatarUrl(profile.getAvatarUrl())
-                                    .rating(profile.getRating())
-                                    .itemsSold(profile.getItemsSold())
-                                    .responseRate(profile.getResponseRate())
-                                    .joinDate(profile.getJoinDate())
-                                    .build())
-                            .build();
-                })
+                .map(ad -> RecentActiveAdResponse.builder()
+                        .id(ad.getId())
+                        .title(ad.getTitle())
+                        .price(ad.getPrice())
+                        .category(ad.getCategory())
+                        .description(ad.getDescription())
+                        .location(ad.getLocation())
+                        .condition(ad.getCondition())
+                        .images(ad.getImages())
+                        .views(ad.getViews())
+                        .messages(ad.getMessages())
+                        .datePosted(ad.getDatePosted())
+                        .status(ad.getStatus())
+                        .dateSold(ad.getDateSold())
+                        .build())
                 .collect(Collectors.toList());
     }
 }
