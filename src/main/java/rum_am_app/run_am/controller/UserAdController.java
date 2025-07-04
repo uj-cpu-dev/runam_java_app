@@ -16,15 +16,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtorequest.AdFilterRequest;
+import rum_am_app.run_am.dtoresponse.AdDetailsResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
+import rum_am_app.run_am.repository.UserAdRepository;
+import rum_am_app.run_am.service.AdDetailsService;
 import rum_am_app.run_am.service.FavoriteService;
 import rum_am_app.run_am.service.UserAdService;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
@@ -36,6 +40,8 @@ public class UserAdController {
     private final UserAdService userAdService;
 
     private final FavoriteService favoriteService;
+
+    private final AdDetailsService adDetailsService;
 
     @GetMapping("/user/{userId}/userAds")
     public ResponseEntity<?> getAllUserAds(@PathVariable String userId) {
@@ -175,6 +181,11 @@ public class UserAdController {
     public ResponseEntity<List<RecentActiveAdResponse>> getRecentActiveAds() {
         List<RecentActiveAdResponse> recentAds = userAdService.getRecentActiveAds();
         return ResponseEntity.ok(recentAds);
+    }
+
+    @GetMapping("/{adId}/userAd")
+    public ResponseEntity<AdDetailsResponse> getUserAdById(@PathVariable String adId) {
+        return ResponseEntity.ok(adDetailsService.getAdDetails(adId));
     }
 
     @GetMapping("/{userId}/favorites")

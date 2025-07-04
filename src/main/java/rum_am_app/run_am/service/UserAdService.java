@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtorequest.AdFilterRequest;
+import rum_am_app.run_am.dtoresponse.AdDetailsResponse;
 import rum_am_app.run_am.dtoresponse.ProfileResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
@@ -232,4 +233,4 @@ public class UserAdService {
                 .dateSold(ad.getDateSold())
                 .build();
     }
-}
+};

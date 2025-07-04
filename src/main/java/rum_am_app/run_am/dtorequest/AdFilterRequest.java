@@ -17,7 +17,11 @@ public class AdFilterRequest {
     private UserAd.AdStatus status;
     private String searchQuery;
     private Instant postedAfter;
+
+    @Builder.Default
     private SortDirection sortDirection = SortDirection.DESC;
+
+    @Builder.Default
     private String sortBy = "datePosted";
 
     public enum SortDirection {
