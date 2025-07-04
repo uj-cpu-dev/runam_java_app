@@ -1,23 +1,30 @@
 package rum_am_app.run_am.controller;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import rum_am_app.run_am.dtorequest.AdFilterRequest;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
-import rum_am_app.run_am.dtoresponse.UserAdResponse;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.service.FavoriteService;
 import rum_am_app.run_am.service.UserAdService;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -45,6 +52,46 @@ public class UserAdController {
                 "message", "User ads retrieved successfully.",
                 "ads", ads
         ));
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<List<RecentActiveAdResponse>> getFilteredAds(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String condition,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+            @RequestParam(required = false) UserAd.AdStatus status,
+            @RequestParam(required = false) String searchQuery,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant postedAfter,
+            @RequestParam(defaultValue = "DESC") AdFilterRequest.SortDirection sortDirection,
+            @RequestParam(defaultValue = "datePosted") String sortBy,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+
+        AdFilterRequest filterRequest = AdFilterRequest.builder()
+                .category(category)
+                .location(location)
+                .condition(condition)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .status(status)
+                .searchQuery(searchQuery)
+                .postedAfter(postedAfter)
+                .sortDirection(sortDirection)
+                .sortBy(sortBy)
+                .build();
+
+        Sort sort = Sort.by(
+                filterRequest.getSortDirection() == AdFilterRequest.SortDirection.ASC ?
+                        Sort.Direction.ASC : Sort.Direction.DESC,
+                filterRequest.getSortBy()
+        );
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<RecentActiveAdResponse> response = userAdService.getFilteredAds(filterRequest, pageable);
+
+        return ResponseEntity.ok(response.getContent());
     }
 
     @GetMapping("/stats/{userId}")

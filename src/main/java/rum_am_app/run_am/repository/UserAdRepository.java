@@ -7,7 +7,7 @@ import rum_am_app.run_am.model.UserAd;
 
 import java.util.List;
 
-public interface UserAdRepository extends MongoRepository<UserAd, String> {
+public interface UserAdRepository extends MongoRepository<UserAd, String>, CustomUserAdRepository {
     List<UserAd> findByUserIdAndStatus(String userId, UserAd.AdStatus status);
     List<UserAd> findByUserId(String userId);
     long countByUserIdAndStatus(String userId, UserAd.AdStatus status);
@@ -23,4 +23,5 @@ public interface UserAdRepository extends MongoRepository<UserAd, String> {
     List<UserAd> findTop10ByStatusActiveOrderByDatePostedDesc(Pageable pageable);
 
     List<UserAd> findByStatus(String status, Pageable pageable);
+
 }

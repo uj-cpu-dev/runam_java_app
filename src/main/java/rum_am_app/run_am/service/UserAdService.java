@@ -2,13 +2,14 @@ package rum_am_app.run_am.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import rum_am_app.run_am.dtorequest.AdFilterRequest;
 import rum_am_app.run_am.dtoresponse.ProfileResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
@@ -37,10 +38,6 @@ public class UserAdService {
     private final AdUpdateHelper adUpdateHelper;
 
     private final ImageUploader imageUploader;
-
-    private final ProfileService profileService;
-
-    private final UserRepository userRepository;
 
     public List<UserAd> getUserAdsByStatus(String userId, UserAd.AdStatus status) {
         return userAdRepository.findByUserIdAndStatus(userId, status);
@@ -205,11 +202,34 @@ public class UserAdService {
                 .collect(Collectors.toList());
     }
 
+    public Page<RecentActiveAdResponse> getFilteredAds(AdFilterRequest filterRequest, Pageable pageable) {
+        Page<UserAd> filteredAds = userAdRepository.findFilteredAds(filterRequest, pageable);
+        return filteredAds.map(this::mapToRecentActiveAdResponse);
+    }
+
     public void deleteAllRecentActiveAds() {
         // Fetch top 10 active ads sorted by datePosted DESC
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "datePosted"));
         List<UserAd> activeAds = userAdRepository.findByStatus("ACTIVE", pageable);
 
         userAdRepository.deleteAll(activeAds);
+    }
+
+    private RecentActiveAdResponse mapToRecentActiveAdResponse(UserAd ad) {
+        return RecentActiveAdResponse.builder()
+                .id(ad.getId())
+                .title(ad.getTitle())
+                .price(ad.getPrice())
+                .category(ad.getCategory())
+                .description(ad.getDescription())
+                .location(ad.getLocation())
+                .condition(ad.getCondition())
+                .images(ad.getImages())
+                .views(ad.getViews())
+                .messages(ad.getMessages())
+                .datePosted(ad.getDatePosted())
+                .status(ad.getStatus())
+                .dateSold(ad.getDateSold())
+                .build();
     }
 }

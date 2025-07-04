@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class UpdateProfileRequest {
@@ -18,4 +19,5 @@ public class UpdateProfileRequest {
 
     private String location;
     private String bio;
+    private String avatarUrl;
 }

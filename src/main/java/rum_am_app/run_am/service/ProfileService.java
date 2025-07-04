@@ -1,8 +1,10 @@
 package rum_am_app.run_am.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtoresponse.ProfileResponse;
 import rum_am_app.run_am.dtorequest.UpdateProfileRequest;
 import rum_am_app.run_am.exception.ApiException;
@@ -10,11 +12,16 @@ import rum_am_app.run_am.model.User;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.repository.UserAdRepository;
 import rum_am_app.run_am.repository.UserRepository;
+import rum_am_app.run_am.util.ImageUploader;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 
 
 @Service
@@ -24,6 +31,13 @@ public class ProfileService {
     private final UserRepository userRepository;
 
     private final UserAdRepository userAdRepository;
+
+    private final UserAdService userAdService;
+
+    @Value("${aws.s3.bucket-name}")
+    private String bucketName;
+
+    private final ImageUploader imageUploader;
 
     public ProfileResponse getProfile(String userId) {
         User user = userRepository.findById(userId)
@@ -56,6 +70,15 @@ public class ProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
 
+        if (request.getAvatarUrl() != null && request.getAvatarUrl().startsWith("data:image")) {
+            if (user.getAvatarUrl() != null) {
+                imageUploader.deleteImageFromS3(user.getAvatarUrl());
+            }
+            MultipartFile avatarFile = imageUploader.convertBase64ToMultipartFile(request.getAvatarUrl(), "avatar.jpg");
+            String avatarUrl = uploadAvatar(avatarFile, userId);
+            user.setAvatarUrl(avatarUrl);
+        }
+
         if (request.getName() != null) {
             user.setName(request.getName());
         }
@@ -87,6 +110,7 @@ public class ProfileService {
                 .format(joinDate);
     }
     private ProfileResponse mapToProfileResponse(User user) {
+        List<UserAd> userAds = userAdService.getAllAdsByUserId(user.getId());
         return ProfileResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -98,7 +122,9 @@ public class ProfileService {
                 .avatarUrl(user.getAvatarUrl())
                 .rating(user.getRating())
                 .itemsSold(user.getItemsSold())
-                .activeListings(user.getActiveListings())
+                .activeListings((int) userAds.stream()
+                        .filter(ad -> ad.getStatus() == UserAd.AdStatus.ACTIVE)
+                        .count())
                 .responseRate(user.getResponseRate())
                 .emailVerified(user.isEmailVerified())
                 .phoneVerified(user.isPhoneVerified())
@@ -106,6 +132,14 @@ public class ProfileService {
                 .isTopSeller(user.isTopSeller())
                 .reviews(user.getReviews())
                 .build();
+    }
+
+    public String uploadAvatar(MultipartFile avatar, String userId) {
+        if (avatar == null || avatar.isEmpty()) {
+            return null;
+        }
+
+        return imageUploader.uploadImageToS3(avatar, userId);
     }
 
 }
