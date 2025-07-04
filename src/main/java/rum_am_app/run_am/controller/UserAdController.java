@@ -61,18 +61,34 @@ public class UserAdController {
     }
 
     @PostMapping(value = "/post/{userId}/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserAd> createAd(
+    public ResponseEntity<?> createAd(
             @RequestPart UserAd userAd,
             @RequestPart(required = false) List<MultipartFile> images) {
 
+        // Validate image sizes before processing
         if (images != null) {
-            images.forEach(img ->
-                    logger.info("Image Name: {}, Size: {}, Type: {}",
-                    img.getOriginalFilename(), img.getSize(), img.getContentType()));
+            for (MultipartFile image : images) {
+                if (image.getSize() > 10 * 1024 * 1024) { // 10MB
+                    return ResponseEntity.badRequest()
+                            .body("Image " + image.getOriginalFilename() +
+                                    " exceeds maximum size of 10MB");
+                }
+
+                logger.info("Image Name: {}, Size: {}, Type: {}",
+                        image.getOriginalFilename(),
+                        image.getSize(),
+                        image.getContentType());
+            }
         }
 
-        assert images != null;
-        return ResponseEntity.ok(userAdService.createAdWithImages(userAd, images));
+        try {
+            UserAd createdAd = userAdService.createAdWithImages(userAd, images);
+            return ResponseEntity.ok(createdAd);
+        } catch (Exception e) {
+            logger.error("Error creating ad", e);
+            return ResponseEntity.internalServerError()
+                    .body("Error processing your request");
+        }
     }
 
     @PutMapping(value = "/put/{userId}/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
