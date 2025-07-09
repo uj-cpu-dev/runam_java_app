@@ -77,6 +77,7 @@ public class UserService {
                 .token(token)
                 .avatarUrl(profileResponse.getAvatarUrl())
                 .email(user.getEmail())
+                .name(user.getName())
                 .build();
     };
 

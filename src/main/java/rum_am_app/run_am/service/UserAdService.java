@@ -62,17 +62,17 @@ public class UserAdService {
         );
     }
 
-    public UserAd createAdWithImages(UserAd userAd, String userId) {
+    public void createAdWithImages(UserAd userAd, String userId) {
         userAd.setUserId(userId);
         adValidator.validateAdCreation(userAd);
         userAd.setViews(0);
         userAd.setMessages(0);
         userAd.setDatePosted(Instant.now());
 
-        return userAdRepository.save(userAd);
+        userAdRepository.save(userAd);
     }
 
-    public UserAd updateAdWithImages(UserAd updatedAd, String userId) {
+    public void updateAdWithImages(UserAd updatedAd, String userId) {
         UserAd existingAd = userAdRepository.findById(updatedAd.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Ad not found"));
 
@@ -91,7 +91,7 @@ public class UserAdService {
 
         adValidator.validateAdUpdate(existingAd);
 
-        return userAdRepository.save(existingAd);
+        userAdRepository.save(existingAd);
     }
 
     public List<UserAd> getAllAdsByUserId(String userId) {

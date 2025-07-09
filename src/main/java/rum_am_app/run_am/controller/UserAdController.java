@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtorequest.AdFilterRequest;
 import rum_am_app.run_am.dtoresponse.AdDetailsResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
+import rum_am_app.run_am.dtoresponse.UserAdResponse;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.service.AdDetailsService;
@@ -51,16 +52,20 @@ public class UserAdController {
         String userId = authHelper.getAuthenticatedUserId();
         List<UserAd> ads = userAdService.getAllAdsByUserId(userId);
 
+        List<UserAdResponse> responseAds = ads.stream()
+                .map(UserAdResponse::fromEntity)
+                .toList();
+
         if (ads.isEmpty()) {
             return ResponseEntity.status(HttpStatus.OK).body(Map.of(
                     "message", "No ads found for this user.",
-                    "ads", ads
+                    "ads", responseAds
             ));
         }
 
         return ResponseEntity.ok(Map.of(
                 "message", "User ads retrieved successfully.",
-                "ads", ads
+                "ads", responseAds
         ));
     }
 
@@ -108,8 +113,8 @@ public class UserAdController {
     public ResponseEntity<?> createAd(@RequestBody UserAd userAd) {
         try {
             String userId = authHelper.getAuthenticatedUserId();
-            UserAd createdAd = userAdService.createAdWithImages(userAd, userId);
-            return ResponseEntity.ok(createdAd);
+            userAdService.createAdWithImages(userAd, userId);
+            return ResponseEntity.ok().body("Ad has been posted successfully!");
         } catch (ApiException ex) {
             return ResponseEntity
                     .status(ex.getStatus())
@@ -130,8 +135,8 @@ public class UserAdController {
             @RequestBody UserAd userAd) {
         try {
             String userId = authHelper.getAuthenticatedUserId();
-            UserAd updated = userAdService.updateAdWithImages(userAd, userId);
-            return ResponseEntity.ok(updated);
+            userAdService.updateAdWithImages(userAd, userId);
+            return ResponseEntity.ok().body("Ad has been updated successfully!");
         } catch (ApiException ex) {
             return ResponseEntity
                     .status(ex.getStatus())
