@@ -24,4 +24,13 @@ public interface UserAdRepository extends MongoRepository<UserAd, String>, Custo
 
     List<UserAd> findByStatus(String status, Pageable pageable);
 
+    boolean existsByUserIdAndTitleAndPriceAndCategoryAndStatusAndIdNot(
+            String userId,
+            String title,
+            Double price,
+            String category,
+            UserAd.AdStatus status,
+            String id
+    );
+
 }

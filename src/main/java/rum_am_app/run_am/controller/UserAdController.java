@@ -105,16 +105,23 @@ public class UserAdController {
     }
 
     @PostMapping("/post-ad")
-    public ResponseEntity<?> createAd(
-            @RequestBody UserAd userAd) {
+    public ResponseEntity<?> createAd(@RequestBody UserAd userAd) {
         try {
             String userId = authHelper.getAuthenticatedUserId();
             UserAd createdAd = userAdService.createAdWithImages(userAd, userId);
             return ResponseEntity.ok(createdAd);
+        } catch (ApiException ex) {
+            return ResponseEntity
+                    .status(ex.getStatus())
+                    .body(Map.of(
+                            "error", ex.getMessage(),
+                            "code", ex.getErrorCode()
+                    ));
         } catch (Exception e) {
             logger.error("Error creating ad", e);
-            return ResponseEntity.internalServerError()
-                    .body("Error processing your request");
+            return ResponseEntity
+                    .internalServerError()
+                    .body(Map.of("error", "Error processing your request"));
         }
     }
 
@@ -125,8 +132,13 @@ public class UserAdController {
             String userId = authHelper.getAuthenticatedUserId();
             UserAd updated = userAdService.updateAdWithImages(userAd, userId);
             return ResponseEntity.ok(updated);
-        } catch (SecurityException se) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(se.getMessage());
+        } catch (ApiException ex) {
+            return ResponseEntity
+                    .status(ex.getStatus())
+                    .body(Map.of(
+                            "error", ex.getMessage(),
+                            "code", ex.getErrorCode()
+                    ));
         } catch (Exception e) {
             logger.error("Error updating ad", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating ad");

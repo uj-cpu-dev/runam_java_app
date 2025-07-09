@@ -38,4 +38,23 @@ public class AdValidator {
             );
         }
     }
+
+    public void validateAdUpdate(UserAd updatedAd) {
+        if (updatedAd.getStatus() == UserAd.AdStatus.DRAFT) return;
+
+        if (userAdRepository.existsByUserIdAndTitleAndPriceAndCategoryAndStatusAndIdNot(
+                updatedAd.getUserId(),
+                updatedAd.getTitle(),
+                updatedAd.getPrice(),
+                updatedAd.getCategory(),
+                updatedAd.getStatus(),
+                updatedAd.getId()
+        )) {
+            throw new ApiException(
+                    "Another active ad with the same title, price, and category already exists",
+                    HttpStatus.BAD_REQUEST,
+                    "DUPLICATE_AD"
+            );
+        }
+    }
 }

@@ -76,20 +76,20 @@ public class UserAdService {
         UserAd existingAd = userAdRepository.findById(updatedAd.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Ad not found"));
 
-        // Optional: validate ownership
         if (!existingAd.getUserId().equals(userId)) {
             throw new SecurityException("Unauthorized update attempt");
         }
 
-        // Overwrite all mutable fields
         existingAd.setTitle(updatedAd.getTitle());
         existingAd.setDescription(updatedAd.getDescription());
         existingAd.setPrice(updatedAd.getPrice());
         existingAd.setCategory(updatedAd.getCategory());
         existingAd.setLocation(updatedAd.getLocation());
-        existingAd.setImages(updatedAd.getImages()); // 🔥 Replace images
+        existingAd.setImages(updatedAd.getImages()); //
         existingAd.setStatus(updatedAd.getStatus());
-        existingAd.setDatePosted(Instant.now()); // Optional: update timestamp
+        existingAd.setDatePosted(Instant.now());
+
+        adValidator.validateAdUpdate(existingAd);
 
         return userAdRepository.save(existingAd);
     }
