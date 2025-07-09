@@ -1,6 +1,5 @@
 package rum_am_app.run_am.util;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -92,11 +91,12 @@ public class ImageUploader {
                 .bucket(bucketName)
                 .key(key)
                 .contentType(file.getContentType())
+                .acl(ObjectCannedACL.PUBLIC_READ)
                 .build();
         s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
     }
 
-    private String generatePreSignedUrl(String objectKey, Duration expirationTime) {
+    public String generatePreSignedUrl(String objectKey, Duration expirationTime) {
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
@@ -116,7 +116,7 @@ public class ImageUploader {
         }
     }
 
-    private String extractS3KeyFromUrl(String url) {
+    public String extractS3KeyFromUrl(String url) {
         try {
             URI uri = new URI(url);
             String path = uri.getPath();

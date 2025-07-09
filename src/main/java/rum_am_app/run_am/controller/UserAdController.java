@@ -13,6 +13,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtorequest.AdFilterRequest;
@@ -20,15 +21,15 @@ import rum_am_app.run_am.dtoresponse.AdDetailsResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
-import rum_am_app.run_am.repository.UserAdRepository;
 import rum_am_app.run_am.service.AdDetailsService;
 import rum_am_app.run_am.service.FavoriteService;
 import rum_am_app.run_am.service.UserAdService;
+import rum_am_app.run_am.util.AuthenticationHelper;
+import rum_am_app.run_am.util.UserPrincipal;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
@@ -43,8 +44,11 @@ public class UserAdController {
 
     private final AdDetailsService adDetailsService;
 
-    @GetMapping("/user/{userId}/userAds")
-    public ResponseEntity<?> getAllUserAds(@PathVariable String userId) {
+    private final AuthenticationHelper authHelper;
+
+    @GetMapping("/user/userAds")
+    public ResponseEntity<?> getAllUserAds() {
+        String userId = authHelper.getAuthenticatedUserId();
         List<UserAd> ads = userAdService.getAllAdsByUserId(userId);
 
         if (ads.isEmpty()) {
@@ -100,42 +104,12 @@ public class UserAdController {
         return ResponseEntity.ok(response.getContent());
     }
 
-    @GetMapping("/stats/{userId}")
-    public ResponseEntity<Map<String, Object>> getUserAdStats(
-            @PathVariable String userId) {
-        return ResponseEntity.ok(userAdService.getUserAdStats(userId));
-    }
-
-    @GetMapping("/{userId}/{status}")
-    public ResponseEntity<List<UserAd>> getUserAdsByStatus(
-            @PathVariable String userId,
-            @PathVariable UserAd.AdStatus status) {
-        return ResponseEntity.ok(userAdService.getUserAdsByStatus(userId, status));
-    }
-
-    @PostMapping(value = "/post/{userId}/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/post-ad")
     public ResponseEntity<?> createAd(
-            @RequestPart UserAd userAd,
-            @RequestPart(required = false) List<MultipartFile> images) {
-
-        // Validate image sizes before processing
-        if (images != null) {
-            for (MultipartFile image : images) {
-                if (image.getSize() > 10 * 1024 * 1024) { // 10MB
-                    return ResponseEntity.badRequest()
-                            .body("Image " + image.getOriginalFilename() +
-                                    " exceeds maximum size of 10MB");
-                }
-
-                logger.info("Image Name: {}, Size: {}, Type: {}",
-                        image.getOriginalFilename(),
-                        image.getSize(),
-                        image.getContentType());
-            }
-        }
-
+            @RequestBody UserAd userAd) {
         try {
-            UserAd createdAd = userAdService.createAdWithImages(userAd, images);
+            String userId = authHelper.getAuthenticatedUserId();
+            UserAd createdAd = userAdService.createAdWithImages(userAd, userId);
             return ResponseEntity.ok(createdAd);
         } catch (Exception e) {
             logger.error("Error creating ad", e);
@@ -144,37 +118,53 @@ public class UserAdController {
         }
     }
 
-    @PutMapping(value = "/put/{userId}/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UserAd> updateAd(
-            @PathVariable String id,
-            @RequestPart UserAd userAd,
-            @RequestPart(required = false) List<MultipartFile> newImages) {
-
-        return ResponseEntity.ok(userAdService.updateAdWithImages(id, userAd, newImages));
+    @PutMapping("/update-ad")
+    public ResponseEntity<?> updateAd(
+            @RequestBody UserAd userAd) {
+        try {
+            String userId = authHelper.getAuthenticatedUserId();
+            UserAd updated = userAdService.updateAdWithImages(userAd, userId);
+            return ResponseEntity.ok(updated);
+        } catch (SecurityException se) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(se.getMessage());
+        } catch (Exception e) {
+            logger.error("Error updating ad", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error updating ad");
+        }
     }
 
-    @DeleteMapping("/delete/{userId}/{adId}/userAd")
-    public ResponseEntity<Map<String, String>> deleteSingleAd(
-            @PathVariable String userId,
+    @DeleteMapping("/delete/{adId}/userAd")
+    public ResponseEntity<?> deleteSingleAd(
             @PathVariable String adId) {
 
-        userAdService.deleteSingleAd(adId, userId);
-
-        return ResponseEntity.ok(Map.of(
-                "message",
-                String.format("Ad with ID %s deleted successfully for user %s.", adId, userId)
-        ));
+        try {
+            String userId = authHelper.getAuthenticatedUserId();
+            userAdService.deleteSingleAd(adId, userId);
+            return ResponseEntity.ok(Map.of(
+                    "message",
+                    String.format("Ad with ID %s deleted successfully for user %s.", adId, userId)
+            ));
+        } catch (Exception e) {
+            logger.error("Error deleting ad", e);
+            return ResponseEntity.internalServerError()
+                    .body("Error processing your request");
+        }
     }
 
-    @DeleteMapping("/delete/{userId}/userAds")
-    public ResponseEntity<Map<String, String>> deleteAllUserAds(@PathVariable String userId) {
-
-        userAdService.deleteAllAdsByUserId(userId);
-
-        return ResponseEntity.ok(Map.of(
-                "message",
-                String.format("All ads deleted successfully for user %s.", userId)
-        ));
+    @DeleteMapping("/delete/userAds")
+    public ResponseEntity<?> deleteAllUserAds() {
+        try {
+            String userId = authHelper.getAuthenticatedUserId();
+            userAdService.deleteAllAdsByUserId(userId);
+            return ResponseEntity.ok(Map.of(
+                    "message",
+                    "All ads deleted successfully"
+            ));
+        } catch (Exception e) {
+            logger.error("Error deleting all ad", e);
+            return ResponseEntity.internalServerError()
+                    .body("Error processing your request");
+        }
     }
 
     @GetMapping("/recent")
@@ -188,17 +178,24 @@ public class UserAdController {
         return ResponseEntity.ok(adDetailsService.getAdDetails(adId));
     }
 
-    @GetMapping("/{userId}/favorites")
-    public List<RecentActiveAdResponse> getUserFavorites(
-            @PathVariable String userId) {
-        return favoriteService.getUserFavorites(userId);
+    @GetMapping("/favorites")
+    public ResponseEntity<?> getUserFavorites() {
+        try {
+            String userId = authHelper.getAuthenticatedUserId();
+            List<RecentActiveAdResponse> favorites = favoriteService.getUserFavorites(userId);
+            return ResponseEntity.ok(favorites);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to retrieve favorites: " + e.getMessage());
+        }
     }
 
-    @PostMapping("/{userId}/{adId}/toggle-favorites")
+    @PostMapping("/{adId}/toggle-favorites")
     public ResponseEntity<?> toggleFavorite(
-            @PathVariable String userId,
             @PathVariable String adId) {
+
         try {
+            String userId = authHelper.getAuthenticatedUserId();
             RecentActiveAdResponse response = favoriteService.toggleFavorite(userId, adId);
 
             String message = (response.getFavoritedAt() != null)
@@ -227,7 +224,7 @@ public class UserAdController {
         }
     }
 
-    @DeleteMapping("/recent/active")
+    /*@DeleteMapping("/recent/active")
     public ResponseEntity<Map<String, String>> deleteRecentActiveAds() {
         userAdService.deleteAllRecentActiveAds();
         return ResponseEntity.ok(
@@ -235,6 +232,6 @@ public class UserAdController {
                         "message", "All recent ads deleted"
                 )
         );
-    }
+    }*/
 
 }

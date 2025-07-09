@@ -49,5 +49,6 @@ public class User {
     private double reviews;
     private boolean isQuickResponder;
     private boolean isTopSeller;
+    private String provider;
 
 }

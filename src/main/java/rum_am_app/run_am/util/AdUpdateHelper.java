@@ -8,7 +8,7 @@ import java.util.*;
 
 @Component
 public class AdUpdateHelper {
-    private final ImageUploader imageUploader;
+    /*private final ImageUploader imageUploader;
     public AdUpdateHelper(ImageUploader imageUploader) {
         this.imageUploader = imageUploader;
     }
@@ -112,5 +112,5 @@ public class AdUpdateHelper {
                 // Logging handled in ImageUploader
             }
         });
-    }
+    }*/
 }

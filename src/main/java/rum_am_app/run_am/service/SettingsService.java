@@ -3,6 +3,7 @@ package rum_am_app.run_am.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import rum_am_app.run_am.dtorequest.UserSettingsUpdateRequest;
+import rum_am_app.run_am.dtoresponse.UserSettingsResponse;
 import rum_am_app.run_am.model.UserSettings;
 import rum_am_app.run_am.repository.UserSettingsRepository;
 
@@ -65,6 +66,22 @@ public class SettingsService {
                 .itemUpdateNotifications(true)
                 .showOnlineStatus(true)
                 .publicProfile(true)
+                .build();
+    }
+
+    public UserSettingsResponse toResponse(UserSettings settings) {
+        return UserSettingsResponse.builder()
+                .emailNotifications(settings.isEmailNotifications())
+                .pushNotifications(settings.isPushNotifications())
+                .smsNotifications(settings.isSmsNotifications())
+                .marketingNotifications(settings.isMarketingNotifications())
+                .newMessageNotifications(settings.isNewMessageNotifications())
+                .itemUpdateNotifications(settings.isItemUpdateNotifications())
+                .priceDropNotifications(settings.isPriceDropNotifications())
+                .showPhoneNumber(settings.isShowPhoneNumber())
+                .showEmail(settings.isShowEmail())
+                .showOnlineStatus(settings.isShowOnlineStatus())
+                .publicProfile(settings.isPublicProfile())
                 .build();
     }
 }

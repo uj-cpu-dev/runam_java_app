@@ -36,9 +36,8 @@ public class UserAd {
     @Setter
     public static class ImageData {
         private String id;
-        private String filename;
         private String url;
-        private String base64Data;
+        private String s3key;
     }
 
     public enum AdStatus {

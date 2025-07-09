@@ -10,13 +10,12 @@ import rum_am_app.run_am.dtoresponse.*;
 import rum_am_app.run_am.dtorequest.UserSignupRequest;
 import rum_am_app.run_am.dtorequest.UserUpdateRequest;
 import rum_am_app.run_am.exception.ApiException;
-import rum_am_app.run_am.model.Favorite;
-import rum_am_app.run_am.model.User;
-import rum_am_app.run_am.model.UserAd;
-import rum_am_app.run_am.model.UserSettings;
+import rum_am_app.run_am.model.*;
 import rum_am_app.run_am.repository.UserRepository;
+import rum_am_app.run_am.util.JwtTokenProvider;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,16 +24,19 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-    private final FavoriteService favoriteService;
-    private final UserAdService userAdService;
-    private final SettingsService settingsService;
 
-    public UserService(UserRepository userRepository, UserAdService userAdService, FavoriteService favoriteService, SettingsService settingsService) {
+    private final ProfileService profileService;
+
+    private final JwtTokenProvider jwtTokenProvider;
+
+    public UserService(
+            UserRepository userRepository,
+            JwtTokenProvider jwtTokenProvider,
+            ProfileService profileService) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
-        this.userAdService = userAdService;
-        this.favoriteService = favoriteService;
-        this.settingsService = settingsService;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.profileService = profileService;
     }
 
     public void register(UserSignupRequest request) {
@@ -54,7 +56,7 @@ public class UserService {
         mapToUserResponse(savedUser);
     }
 
-    public UserResponse login(UserLoginRequest request) {
+    public AuthResponse login(UserLoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
 
@@ -62,45 +64,21 @@ public class UserService {
             throw new ApiException("Invalid credentials", HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
 
-        logger.info("User logged in: {}", user.getEmail());
+        // Generate JWT token
+        String token = jwtTokenProvider.createToken(
+                user.getId(),
+                user.getEmail(),
+                Collections.singletonList("ROLE_USER") // Add actual roles if you have them
+        );
 
-        ProfileResponse profile = ProfileResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
+        ProfileResponse profileResponse = profileService.getProfile(user.getId());
+
+        return AuthResponse.builder()
+                .token(token)
+                .avatarUrl(profileResponse.getAvatarUrl())
                 .email(user.getEmail())
-                .phone(user.getPhone())
-                .location(user.getLocation())
-                .bio(user.getBio())
-                .joinDate(user.getJoinDate().toString())
-                .avatarUrl(user.getAvatarUrl())
-                .rating(user.getRating())
-                .itemsSold(user.getItemsSold())
-                .activeListings(user.getActiveListings())
-                .responseRate(user.getResponseRate())
-                .emailVerified(user.isEmailVerified())
-                .phoneVerified(user.isPhoneVerified())
-                .reviews(user.getReviews())
-                .isQuickResponder(user.isQuickResponder())
-                .isTopSeller(user.isTopSeller())
                 .build();
-
-        List<UserAd> userAds = userAdService.getAllAdsByUserId(user.getId());
-
-        List<UserAdResponse> adResponses = userAds.stream()
-                .map(UserAdResponse::fromEntity)
-                .collect(Collectors.toList());
-
-        List<RecentActiveAdResponse> favoriteResponses = favoriteService.getUserFavorites(user.getId());
-
-        UserSettings userSettings = settingsService.getSettings(user.getId());
-
-        return UserResponse.builder()
-                .profile(profile)
-                .ads(adResponses)
-                .favorites(favoriteResponses)
-                .settings(userSettings)
-                .build();
-    }
+    };
 
     public UserResponse updateUser(String userId, UserUpdateRequest request) {
         User user = userRepository.findById(userId)

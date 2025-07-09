@@ -2,26 +2,19 @@ package rum_am_app.run_am.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 import rum_am_app.run_am.dtorequest.AdFilterRequest;
-import rum_am_app.run_am.dtoresponse.AdDetailsResponse;
-import rum_am_app.run_am.dtoresponse.ProfileResponse;
 import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
-import rum_am_app.run_am.model.ProfilePreview;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.repository.UserAdRepository;
-import rum_am_app.run_am.repository.UserRepository;
 import rum_am_app.run_am.util.AdUpdateHelper;
 import rum_am_app.run_am.util.AdValidator;
 import rum_am_app.run_am.util.ImageUploader;
-import rum_am_app.run_am.model.User;
 
 import java.time.Instant;
 import java.util.*;
@@ -39,6 +32,9 @@ public class UserAdService {
     private final AdUpdateHelper adUpdateHelper;
 
     private final ImageUploader imageUploader;
+
+    @Value("${aws.s3.bucket-name}")
+    private String bucketName;
 
     public List<UserAd> getUserAdsByStatus(String userId, UserAd.AdStatus status) {
         return userAdRepository.findByUserIdAndStatus(userId, status);
@@ -69,102 +65,58 @@ public class UserAdService {
         );
     }
 
-    public UserAd createAdWithImages(UserAd userAd, List<MultipartFile> imageFiles) {
+    public UserAd createAdWithImages(UserAd userAd, String userId) {
+        userAd.setUserId(userId);
         adValidator.validateAdCreation(userAd);
-
-        List<UserAd.ImageData> imageData = processNewImages(imageFiles, userAd.getUserId());
-        UserAd newAd = initializeNewAd(userAd, imageData);
-
-        return userAdRepository.save(newAd);
-    }
-
-    private List<UserAd.ImageData> processNewImages(List<MultipartFile> newImages, String userId) {
-        if (newImages == null || newImages.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        return newImages.stream()
-                .map(file -> {
-                    String url = imageUploader.uploadImageToS3(file, userId);
-                    UserAd.ImageData imageData = new UserAd.ImageData();
-                    imageData.setId(UUID.randomUUID().toString());
-                    imageData.setFilename(file.getOriginalFilename());
-                    imageData.setUrl(url);
-                    return imageData;
-                })
-                .collect(Collectors.toList());
-    }
-
-    private UserAd initializeNewAd(UserAd userAd, List<UserAd.ImageData> imageData) {
-        userAd.setImages(imageData);
         userAd.setViews(0);
         userAd.setMessages(0);
         userAd.setDatePosted(Instant.now());
-        userAd.setUserId(userAd.getUserId());
 
-        // Respect draft status if provided; default to ACTIVE otherwise
-        if (userAd.getStatus() == null) {
-            userAd.setStatus(UserAd.AdStatus.ACTIVE);
-        }
-
-        return userAd;
+        return userAdRepository.save(userAd);
     }
 
-    public UserAd updateAdWithImages(String id, UserAd updatedAd, List<MultipartFile> newImages) {
-        log.info("Updating ad with ID={}", id);
+    public UserAd updateAdWithImages(UserAd updatedAd, String userId) {
+        UserAd existingAd = userAdRepository.findById(updatedAd.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Ad not found"));
 
-        UserAd existingAd = userAdRepository.findById(id)
-                .orElseThrow(() -> new ApiException("Ad not found with id-" + id, HttpStatus.BAD_REQUEST, "AD_NOT_FOUND"));
-
-        boolean publishingAd = (updatedAd.getStatus() == UserAd.AdStatus.ACTIVE || updatedAd.getStatus() == UserAd.AdStatus.SOLD)
-                && (existingAd.getStatus() == UserAd.AdStatus.DRAFT);
-
-        if (publishingAd) {
-            adValidator.validateAdCreation(updatedAd);
+        // Optional: validate ownership
+        if (!existingAd.getUserId().equals(userId)) {
+            throw new SecurityException("Unauthorized update attempt");
         }
 
-        adUpdateHelper.updateBasicFields(existingAd, updatedAd);
+        // Overwrite all mutable fields
+        existingAd.setTitle(updatedAd.getTitle());
+        existingAd.setDescription(updatedAd.getDescription());
+        existingAd.setPrice(updatedAd.getPrice());
+        existingAd.setCategory(updatedAd.getCategory());
+        existingAd.setLocation(updatedAd.getLocation());
+        existingAd.setImages(updatedAd.getImages()); // 🔥 Replace images
+        existingAd.setStatus(updatedAd.getStatus());
+        existingAd.setDatePosted(Instant.now()); // Optional: update timestamp
 
-        List<UserAd.ImageData> finalImages = new ArrayList<>();
-        Set<String> imagesToDelete = adUpdateHelper.processImageUpdates(
-                existingAd, updatedAd, newImages, finalImages);
-        existingAd.setImages(finalImages);
-
-        if (updatedAd.getStatus() == UserAd.AdStatus.SOLD &&
-                existingAd.getStatus() != UserAd.AdStatus.SOLD) {
-            existingAd.setStatus(UserAd.AdStatus.SOLD);
-            existingAd.setDateSold(Instant.now());
-        } else {
-            existingAd.setStatus(updatedAd.getStatus()); // Includes DRAFT or ACTIVE updates
-        }
-
-        UserAd savedAd = userAdRepository.save(existingAd);
-        adUpdateHelper.cleanupImages(imagesToDelete);
-
-        return savedAd;
+        return userAdRepository.save(existingAd);
     }
 
     public List<UserAd> getAllAdsByUserId(String userId) {
         return userAdRepository.findByUserId(userId);
     }
 
-
     @Transactional
     public void deleteSingleAd(String adId, String userId) {
-        // Find the specific ad
         UserAd ad = userAdRepository.findById(adId)
                 .orElseThrow(() -> new ApiException("Ad not found", HttpStatus.NOT_FOUND, "AD_NOT_FOUND"));
 
         if (!ad.getUserId().equals(userId)) {
-            throw new ApiException(
-                    "Not authorized to delete this ad",
-                    HttpStatus.FORBIDDEN,
-                    "UNAUTHORIZED_OPERATION"
-            );
+            throw new ApiException("Not authorized to delete this ad", HttpStatus.FORBIDDEN, "UNAUTHORIZED_OPERATION");
         }
 
-        ad.getImages().forEach(imageData ->
-                imageUploader.deleteImageFromS3(imageData.getUrl()));
+        if (ad.getImages() != null) {
+            ad.getImages().forEach(image -> {
+                String key = imageUploader.extractS3KeyFromUrl(image.getUrl());
+                imageUploader.deleteImageFromS3(key);
+            });
+        }
+
         userAdRepository.delete(ad);
     }
 
@@ -233,4 +185,5 @@ public class UserAdService {
                 .dateSold(ad.getDateSold())
                 .build();
     }
-};
+
+}
