@@ -73,6 +73,19 @@ public class ImageUploader {
             throw new ApiException("Failed to delete image from S3", HttpStatus.INTERNAL_SERVER_ERROR, "IMAGE_DELETE_FAILED");
         }
     }
+    public void deleteAvatarFromS3(String avatarUrl) {
+        try {
+            String key = extractS3KeyFromUrl(avatarUrl); // see below
+            DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+            s3Client.deleteObject(deleteRequest);
+        } catch (Exception e) {
+            log.error("Failed to delete image from S3 with URL: {}", avatarUrl, e);
+            throw new ApiException("Failed to delete image from S3", HttpStatus.INTERNAL_SERVER_ERROR, "IMAGE_DELETE_FAILED");
+        }
+    }
 
     private String generateS3Key(String filename, String userId) {
         return String.format("ads/%s/%s_%s",
@@ -90,7 +103,6 @@ public class ImageUploader {
                 .bucket(bucketName)
                 .key(key)
                 .contentType(file.getContentType())
-                .acl(ObjectCannedACL.PUBLIC_READ)
                 .build();
         s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
     }

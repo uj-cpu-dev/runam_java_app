@@ -71,7 +71,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
-                //"http://localhost:8080",
+                "http://localhost:8080",
                 "https://runam.africa"
         ));
         configuration.setAllowedMethods(Arrays.asList(

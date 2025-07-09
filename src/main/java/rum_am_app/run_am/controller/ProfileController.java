@@ -22,14 +22,13 @@ public class ProfileController {
     private final AuthenticationHelper authHelper;
 
     @GetMapping
-    public ResponseEntity<?> getProfile(
-            Authentication authentication) {
+    public ResponseEntity<?> getProfile() {
 
         try {
             String userId = authHelper.getAuthenticatedUserId();
             return ResponseEntity.ok(profileService.getProfile(userId));
         } catch (Exception e) {
-            logger.error("Error deleting all ad", e);
+            logger.error("Error getting user profile details", e);
             return ResponseEntity.internalServerError()
                     .body("Error processing your request");
         }
@@ -37,14 +36,13 @@ public class ProfileController {
 
     @PutMapping
     public ResponseEntity<?> updateProfile(
-            @RequestBody UpdateProfileRequest request,
-            Authentication authentication) {
+            @RequestBody UpdateProfileRequest request) {
 
         try {
             String userId = authHelper.getAuthenticatedUserId();
             return ResponseEntity.ok(profileService.updateProfile(userId, request));
         } catch (Exception e) {
-            logger.error("Error deleting all ad", e);
+            logger.error("Error updating user profile details", e);
             return ResponseEntity.internalServerError()
                     .body("Error processing your request");
         }

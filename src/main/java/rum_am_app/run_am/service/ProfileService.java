@@ -72,7 +72,7 @@ public class ProfileService {
 
         if (request.getAvatarUrl() != null && request.getAvatarUrl().startsWith("data:image")) {
             if (user.getAvatarUrl() != null) {
-                imageUploader.deleteImageFromS3(user.getAvatarUrl());
+                imageUploader.deleteAvatarFromS3(user.getAvatarUrl());
             }
             MultipartFile avatarFile = imageUploader.convertBase64ToMultipartFile(request.getAvatarUrl(), "avatar.jpg");
             String avatarUrl = uploadAvatar(avatarFile, userId);
