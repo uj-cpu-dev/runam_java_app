@@ -46,7 +46,6 @@ public class ProfileService {
         List<UserAd> userAds = userAdRepository.findByUserId(userId);
 
         return ProfileResponse.builder()
-                .id(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
@@ -70,14 +69,7 @@ public class ProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
 
-        if (request.getAvatarUrl() != null && request.getAvatarUrl().startsWith("data:image")) {
-            if (user.getAvatarUrl() != null) {
-                imageUploader.deleteAvatarFromS3(user.getAvatarUrl());
-            }
-            MultipartFile avatarFile = imageUploader.convertBase64ToMultipartFile(request.getAvatarUrl(), "avatar.jpg");
-            String avatarUrl = uploadAvatar(avatarFile, userId);
-            user.setAvatarUrl(avatarUrl);
-        }
+        user.setAvatarUrl(request.getAvatarUrl());
 
         if (request.getName() != null) {
             user.setName(request.getName());
@@ -112,7 +104,6 @@ public class ProfileService {
     private ProfileResponse mapToProfileResponse(User user) {
         List<UserAd> userAds = userAdService.getAllAdsByUserId(user.getId());
         return ProfileResponse.builder()
-                .id(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .phone(user.getPhone())

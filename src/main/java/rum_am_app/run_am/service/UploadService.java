@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -21,8 +22,8 @@ public class UploadService {
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
-    public UploadController.PresignedUrlResponse generatePresignedUrl(String adId, String filename, String contentType) {
-        String objectKey = generateS3Key(filename, adId);
+    public UploadController.PresignedUrlResponse generatePresignedUrl(String adId, String filename, String contentType, String folder) {
+        String objectKey = generateS3Key(filename, adId, folder);
         Duration expiration = Duration.ofMinutes(10);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -47,8 +48,10 @@ public class UploadService {
         );
     }
 
-    private String generateS3Key(String filename, String adId) {
-        return String.format("ads/%s/%s_%s",
+    private String generateS3Key(String filename, String adId, String folder) {
+        String safeFolder = (folder != null && !folder.isEmpty()) ? folder : "ads";
+        return String.format("%s/%s/%s_%s",
+                safeFolder,
                 adId,
                 UUID.randomUUID(),
                 sanitizeFilename(filename));

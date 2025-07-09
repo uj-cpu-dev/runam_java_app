@@ -31,7 +31,10 @@ public class UploadController {
         try {
             List<PresignedUrlResponse> responses = request.files().stream()
                     .map(file -> uploadService.generatePresignedUrl(
-                            request.adId(), file.filename(), file.contentType()))
+                            request.adId(),
+                            file.filename(),
+                            file.contentType(),
+                            request.folder()))
                     .toList();
             return ResponseEntity.ok(responses);
         } catch (Exception e) {
@@ -42,7 +45,7 @@ public class UploadController {
 
     public record PresignedUrlRequest(String filename, String contentType) {}
 
-    public record MultiplePresignedUrlsRequest(String adId, List<PresignedUrlRequest> files) {}
+    public record MultiplePresignedUrlsRequest(String adId, List<PresignedUrlRequest> files, String folder) {}
 
     public record PresignedUrlResponse(String filename, String uploadUrl, String publicUrl, String objectKey) {}
 }
