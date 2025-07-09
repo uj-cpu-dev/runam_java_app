@@ -12,7 +12,6 @@ import rum_am_app.run_am.dtoresponse.RecentActiveAdResponse;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.UserAd;
 import rum_am_app.run_am.repository.UserAdRepository;
-import rum_am_app.run_am.util.AdUpdateHelper;
 import rum_am_app.run_am.util.AdValidator;
 import rum_am_app.run_am.util.ImageUploader;
 
@@ -28,8 +27,6 @@ public class UserAdService {
     private final UserAdRepository userAdRepository;
 
     private final AdValidator adValidator;
-
-    private final AdUpdateHelper adUpdateHelper;
 
     private final ImageUploader imageUploader;
 
@@ -127,8 +124,10 @@ public class UserAdService {
 
         userAds.stream()
                 .flatMap(ad -> ad.getImages().stream())
-                .forEach(imageData -> imageUploader.deleteImageFromS3(imageData.getUrl()));
-
+                .forEach(imageData -> {
+                    String key = imageUploader.extractS3KeyFromUrl(imageData.getUrl());
+                    imageUploader.deleteImageFromS3(key);
+                });
         userAdRepository.deleteAll(userAds);
     }
 

@@ -61,16 +61,15 @@ public class ImageUploader {
         }
     }
 
-    public void deleteImageFromS3(String imageUrl) {
+    public void deleteImageFromS3(String key) {
         try {
-            String key = extractS3KeyFromUrl(imageUrl);
             DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
             s3Client.deleteObject(deleteRequest);
         } catch (Exception e) {
-            log.error("Failed to delete image from S3: {}", imageUrl, e);
+            log.error("Failed to delete image from S3 with key: {}", key, e);
             throw new ApiException("Failed to delete image from S3", HttpStatus.INTERNAL_SERVER_ERROR, "IMAGE_DELETE_FAILED");
         }
     }
