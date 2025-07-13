@@ -5,8 +5,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
+import rum_am_app.run_am.controller.ConversationController;
 
 import java.time.LocalDateTime;
 
@@ -22,13 +25,21 @@ public class Conversation {
     private User participant;
 
     @DBRef
-    private Item item;
+    private UserAd userAd;
+
+    private String participantId; // <-- denormalized field for indexing
+    private String userAdId;      // <-- denormalized field for indexing
+
+    @DBRef
+    private ConversationController.ItemDto item;
 
     private String lastMessage;
     private LocalDateTime timestamp;
     private int unread;
-    private String status; // "sent", "delivered", "read"
+    private String status;
 
     @Version
     private Long version;
+
+    private User seller;
 }

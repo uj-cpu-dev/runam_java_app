@@ -22,4 +22,21 @@ public class AuthenticationHelper {
 
         return userPrincipal.getUserId();
     }
+
+    public String getAuthenticatedUserName() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserPrincipal userPrincipal)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid authentication principal");
+        }
+
+        return userPrincipal.getName();
+    }
+
+
 }

@@ -20,6 +20,8 @@ public class Message {
 
     private String conversationId;
 
+    private boolean read = false;
+
     @DBRef
     private User sender; // Reference to User collection
 

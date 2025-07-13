@@ -6,14 +6,15 @@ import org.springframework.stereotype.Repository;
 import rum_am_app.run_am.model.Conversation;
 
 import java.util.List;
-
+import java.util.Optional;
 @Repository
 public interface ConversationRepository extends MongoRepository<Conversation, String> {
-    List<Conversation> findByParticipantId(String participantId);
 
-    @Query("{'$or': ["
-            + "{'participant.name': {$regex: ?0, $options: 'i'}}, "
-            + "{'item.title': {$regex: ?0, $options: 'i'}}"
-            + "]}")
-    List<Conversation> searchConversations(String searchTerm);
+    @Query("{ $or: [ "
+            + "{ 'participant.id': ?0 }, "
+            + "{ 'seller.id': ?0 } "
+            + "] }")
+    List<Conversation> findByParticipantIdOrSellerId(String participantId, String sellerId);
+
+    Optional<Conversation> findByParticipantIdAndUserAdId(String participantId, String userAdId);
 }

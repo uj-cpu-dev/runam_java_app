@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/users/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/ws-messages/**").permitAll()
                         .requestMatchers("/api/upload/presigned-urls")
                         .authenticated()
                 )
