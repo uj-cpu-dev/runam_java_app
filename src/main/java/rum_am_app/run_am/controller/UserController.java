@@ -12,8 +12,15 @@ import rum_am_app.run_am.dtoresponse.AuthResponse;
 import rum_am_app.run_am.dtoresponse.UserResponse;
 import rum_am_app.run_am.dtorequest.UserSignupRequest;
 import rum_am_app.run_am.dtorequest.UserUpdateRequest;
+import rum_am_app.run_am.exception.ApiException;
+import rum_am_app.run_am.model.User;
+import rum_am_app.run_am.repository.UserRepository;
+import rum_am_app.run_am.repository.VerificationTokenRepository;
 import rum_am_app.run_am.service.UserService;
 import rum_am_app.run_am.util.AuthenticationHelper;
+import rum_am_app.run_am.util.VerificationToken;
+
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/users")
@@ -23,6 +30,27 @@ public class UserController {
     private final UserService userService;
 
     private final AuthenticationHelper authHelper;
+
+    private final VerificationTokenRepository verificationTokenRepository;
+
+    private final UserRepository userRepository;
+
+    @GetMapping("/verify")
+    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+        VerificationToken verificationToken = verificationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new ApiException("Invalid verification token", HttpStatus.BAD_REQUEST, "INVALID_TOKEN"));
+
+        if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
+            return ResponseEntity.status(HttpStatus.GONE).body("Token has expired.");
+        }
+
+        User user = verificationToken.getUser();
+        user.setEnabled(true);
+        userRepository.save(user);
+
+        verificationTokenRepository.delete(verificationToken);
+        return ResponseEntity.ok("Email verified successfully!");
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse> signup(@Valid @RequestBody UserSignupRequest request) {
