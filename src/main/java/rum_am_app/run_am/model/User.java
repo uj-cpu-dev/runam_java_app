@@ -47,5 +47,6 @@ public class User {
     private boolean isQuickResponder;
     private boolean isTopSeller;
     private String provider;
+    private boolean enabled = false;
 
 }
