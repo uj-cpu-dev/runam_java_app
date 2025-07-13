@@ -3,6 +3,7 @@ package rum_am_app.run_am.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
@@ -61,13 +62,21 @@ public class UserService {
         user.setJoinDate(Instant.now());
         user.setEnabled(false); // User cannot log in until verified
 
-        User savedUser = userRepository.save(user);
-
         String token = UUID.randomUUID().toString();
-        VerificationToken verificationToken = new VerificationToken(token, savedUser, Instant.now().plus(3, ChronoUnit.HOURS));
-        verificationTokenRepository.save(verificationToken);
 
-        emailService.sendVerificationEmail(savedUser.getEmail(), token);
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), token);
+
+            // If email sent successfully, then save user and token
+            User savedUser = userRepository.save(user);
+            VerificationToken verificationToken = new VerificationToken(
+                    token, savedUser, Instant.now().plus(3, ChronoUnit.HOURS)
+            );
+            verificationTokenRepository.save(verificationToken);
+
+        } catch (MailException e) {
+            throw new ApiException("Failed to send verification email", HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_SEND_FAILED");
+        }
     }
 
     public AuthResponse login(UserLoginRequest request) {
