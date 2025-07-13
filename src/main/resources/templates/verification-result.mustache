@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f9f9f9;
+            padding: 40px;
+            text-align: center;
+        }
+        .box {
+            background: #fff;
+            padding: 30px;
+            margin: auto;
+            border-radius: 8px;
+            max-width: 400px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        a:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2 class="{{#success}}success{{/success}}{{^success}}error{{/success}}">
+        {{message}}
+    </h2>
+
+    {{#success}}
+        <a href="/login">Go to Login</a>
+    {{/success}}
+</div>
+</body>
+</html>

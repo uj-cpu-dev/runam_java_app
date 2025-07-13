@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
 import rum_am_app.run_am.dtoresponse.ApiResponse;
@@ -36,20 +37,24 @@ public class UserController {
     private final UserRepository userRepository;
 
     @GetMapping("/verify")
-    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+    public String verifyEmail(@RequestParam String token, Model model) {
         VerificationToken verificationToken = verificationTokenRepository.findByToken(token)
                 .orElseThrow(() -> new ApiException("Invalid verification token", HttpStatus.BAD_REQUEST, "INVALID_TOKEN"));
 
         if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
-            return ResponseEntity.status(HttpStatus.GONE).body("Token has expired.");
+            model.addAttribute("message", "Your verification link has expired.");
+            model.addAttribute("success", false);
+            return "verification-result";
         }
 
         User user = verificationToken.getUser();
         user.setEnabled(true);
         userRepository.save(user);
-
         verificationTokenRepository.delete(verificationToken);
-        return ResponseEntity.ok("Email verified successfully!");
+
+        model.addAttribute("message", "Your email has been successfully verified!");
+        model.addAttribute("success", true);
+        return "verification-result";
     }
 
     @PostMapping("/signup")
