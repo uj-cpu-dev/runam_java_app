@@ -76,15 +76,20 @@ public class UserController {
     }
 
     @PutMapping("/update-user")
-    public ResponseEntity<UserResponse> updateUser(@PathVariable String userId, @Valid @RequestBody UserUpdateRequest request) {
-        UserResponse updatedUser = userService.updateUser(userId, request);
-        return ResponseEntity.ok(updatedUser);
+    public ResponseEntity<ApiResponse> updateUser(@RequestBody UserUpdateRequest request) {
+        try {
+            String userId = authHelper.getAuthenticatedUserId();
+            userService.updateUser(userId, request);
+            return ApiResponse.create("User updated successfully", HttpStatus.CREATED);
+        } catch (Exception e) {
+            return ApiResponse.create("User update failed: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @DeleteMapping("/delete-user")
     public ResponseEntity<String> deleteUser() {
         String userId = authHelper.getAuthenticatedUserId();
-        userService.deleteUser(userId);
+        userRepository.deleteById(userId);
         return ResponseEntity.ok("User has been deleted");
     }
 }

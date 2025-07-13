@@ -1,7 +1,5 @@
 package rum_am_app.run_am.dtorequest;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,12 +9,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserUpdateRequest {
 
-    @Size(min = 2, max = 100)
     private String name;
 
-    @Email
     private String email;
 
-    @Size(min = 8)
     private String password;
+
+    private String currentPassword;
 }

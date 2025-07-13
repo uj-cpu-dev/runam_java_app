@@ -96,8 +96,11 @@ public class ProfileService {
         return mapToProfileResponse(updatedUser);
     }
 
-    private String formatJoinDate(Instant joinDate) {
-        return DateTimeFormatter.ofPattern("MMMM yyyy")
+    public String formatJoinDate(Instant joinDate) {
+        if (joinDate == null) {
+            return "N/A";
+        }
+        return DateTimeFormatter.ofPattern("dd MMM yyyy")
                 .withZone(ZoneId.systemDefault())
                 .format(joinDate);
     }

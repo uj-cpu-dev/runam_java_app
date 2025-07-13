@@ -50,6 +50,22 @@ public class UserService {
         this.profileService = profileService;
     }
 
+    /*public void register(UserSignupRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new ApiException("Email already in use", HttpStatus.NOT_FOUND, "EMAIL_ALREADY_IN_USE");
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setName(request.getName());
+
+        User savedUser = userRepository.save(user);
+        logger.info("New user created with ID: {}", savedUser.getId());
+
+        mapToUserResponse(savedUser);
+    }*/
+
     public void register(UserSignupRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new ApiException("Email already in use", HttpStatus.BAD_REQUEST, "EMAIL_ALREADY_IN_USE");
@@ -108,9 +124,18 @@ public class UserService {
                 .build();
     };
 
-    public UserResponse updateUser(String userId, UserUpdateRequest request) {
+    public void updateUser(String userId, UserUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
+
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            if (request.getCurrentPassword() == null ||
+                    !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new ApiException("Current password is incorrect", HttpStatus.UNAUTHORIZED, "INVALID_CURRENT_PASSWORD");
+            }
+
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
 
         if (request.getName() != null) {
             user.setName(request.getName());
@@ -123,24 +148,8 @@ public class UserService {
             user.setEmail(request.getEmail());
         }
 
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            user.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
-
-        User updatedUser = userRepository.save(user);
-        logger.info("User updated: {}", updatedUser.getId());
-        return mapToUserResponse(updatedUser);
+        userRepository.save(user);
     }
-
-    public void deleteUser(String userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new ApiException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
-        }
-
-        userRepository.deleteById(userId);
-        logger.info("User deleted: {}", userId);
-    }
-
 
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
