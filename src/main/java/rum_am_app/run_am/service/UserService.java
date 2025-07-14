@@ -7,64 +7,34 @@ import org.springframework.mail.MailException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
-import rum_am_app.run_am.dtoresponse.*;
 import rum_am_app.run_am.dtorequest.UserSignupRequest;
 import rum_am_app.run_am.dtorequest.UserUpdateRequest;
 import rum_am_app.run_am.exception.ApiException;
 import rum_am_app.run_am.model.*;
 import rum_am_app.run_am.repository.UserRepository;
 import rum_am_app.run_am.repository.VerificationTokenRepository;
-import rum_am_app.run_am.util.JwtTokenProvider;
 import rum_am_app.run_am.util.VerificationToken;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-
-    private final ProfileService profileService;
-
-    private final JwtTokenProvider jwtTokenProvider;
-
     private final EmailService emailService;
 
     private final VerificationTokenRepository verificationTokenRepository;
 
     public UserService(
-            UserRepository userRepository,
-            JwtTokenProvider jwtTokenProvider,
-            ProfileService profileService, EmailService emailService, VerificationTokenRepository verificationTokenRepository) {
+            UserRepository userRepository, EmailService emailService, VerificationTokenRepository verificationTokenRepository) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.verificationTokenRepository = verificationTokenRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.profileService = profileService;
     }
-
-    /*public void register(UserSignupRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new ApiException("Email already in use", HttpStatus.NOT_FOUND, "EMAIL_ALREADY_IN_USE");
-        }
-
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setName(request.getName());
-
-        User savedUser = userRepository.save(user);
-        logger.info("New user created with ID: {}", savedUser.getId());
-
-        mapToUserResponse(savedUser);
-    }*/
 
     public void register(UserSignupRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
@@ -95,7 +65,7 @@ public class UserService {
         }
     }
 
-    public AuthResponse login(UserLoginRequest request) {
+    public User login(UserLoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ApiException("User not found", HttpStatus.BAD_REQUEST, "USER_NOT_FOUND"));
 
@@ -107,21 +77,7 @@ public class UserService {
             throw new ApiException("Invalid credentials", HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
 
-        // Generate JWT token
-        String token = jwtTokenProvider.createToken(
-                user.getId(),
-                user.getEmail(),
-                Collections.singletonList("ROLE_USER") // Add actual roles if you have them
-        );
-
-        ProfileResponse profileResponse = profileService.getProfile(user.getId());
-
-        return AuthResponse.builder()
-                .token(token)
-                .avatarUrl(profileResponse.getAvatarUrl())
-                .email(user.getEmail())
-                .name(user.getName())
-                .build();
+        return user;
     };
 
     public void updateUser(String userId, UserUpdateRequest request) {
@@ -149,11 +105,6 @@ public class UserService {
         }
 
         userRepository.save(user);
-    }
-
-    private UserResponse mapToUserResponse(User user) {
-        return UserResponse.builder()
-                .build();
     }
 }
 

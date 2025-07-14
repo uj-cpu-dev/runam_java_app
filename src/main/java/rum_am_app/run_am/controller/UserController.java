@@ -1,16 +1,16 @@
 package rum_am_app.run_am.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
 import rum_am_app.run_am.dtoresponse.ApiResponse;
 import rum_am_app.run_am.dtoresponse.AuthResponse;
-import rum_am_app.run_am.dtoresponse.UserResponse;
 import rum_am_app.run_am.dtorequest.UserSignupRequest;
 import rum_am_app.run_am.dtorequest.UserUpdateRequest;
 import rum_am_app.run_am.exception.ApiException;
@@ -19,9 +19,12 @@ import rum_am_app.run_am.repository.UserRepository;
 import rum_am_app.run_am.repository.VerificationTokenRepository;
 import rum_am_app.run_am.service.UserService;
 import rum_am_app.run_am.util.AuthenticationHelper;
+import rum_am_app.run_am.util.JwtTokenProvider;
 import rum_am_app.run_am.util.VerificationToken;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -36,15 +39,15 @@ public class UserController {
 
     private final UserRepository userRepository;
 
-    @GetMapping("/verify")
-    public String verifyEmail(@RequestParam String token, Model model) {
+    private final JwtTokenProvider jwtTokenProvider;
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<ApiResponse> verifyEmail(@RequestParam String token) {
         VerificationToken verificationToken = verificationTokenRepository.findByToken(token)
                 .orElseThrow(() -> new ApiException("Invalid verification token", HttpStatus.BAD_REQUEST, "INVALID_TOKEN"));
 
         if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
-            model.addAttribute("message", "Your verification link has expired.");
-            model.addAttribute("success", false);
-            return "verification-result";
+            return ApiResponse.create("Your verification link has expired.", HttpStatus.BAD_REQUEST);
         }
 
         User user = verificationToken.getUser();
@@ -52,9 +55,7 @@ public class UserController {
         userRepository.save(user);
         verificationTokenRepository.delete(verificationToken);
 
-        model.addAttribute("message", "Your email has been successfully verified!");
-        model.addAttribute("success", true);
-        return "verification-result";
+        return ApiResponse.create("Your email has been successfully verified!", HttpStatus.OK);
     }
 
     @PostMapping("/signup")
@@ -68,11 +69,28 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody UserLoginRequest request) {
-        AuthResponse response = userService.login(request);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + response.getToken())
-                .body(response);
+    public ResponseEntity<AuthResponse> login(@RequestBody UserLoginRequest request, HttpServletResponse response) {
+        User user = userService.login(request); // your existing logic
+
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), List.of("ROLE_USER"));
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getEmail());
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth/refresh") // limit scope
+                .maxAge(Duration.ofDays(7))
+                .sameSite("Strict")
+                .build();
+
+        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok(AuthResponse.builder()
+                .accessToken(accessToken)
+                .email(user.getEmail())
+                .name(user.getName())
+                .avatarUrl(user.getAvatarUrl())
+                .build());
     }
 
     @PutMapping("/update-user")

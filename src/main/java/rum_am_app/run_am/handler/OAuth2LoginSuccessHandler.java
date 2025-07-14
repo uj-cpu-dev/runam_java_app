@@ -59,7 +59,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         });
 
         // Generate token
-        String token = jwtTokenProvider.createToken(user.getId().toString(), user.getEmail(), Collections.singletonList("ROLE"));
+        String token = jwtTokenProvider.createAccessToken(user.getId().toString(), user.getEmail(), Collections.singletonList("ROLE"));
 
         // Redirect to frontend with token and email
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)

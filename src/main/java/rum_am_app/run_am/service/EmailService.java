@@ -16,7 +16,7 @@ public class EmailService {
 
     public void sendVerificationEmail(String toEmail, String token) {
         String subject = "Verify your email";
-        String verificationUrl = "https://runam.live/api/users/verify?token=" + token;
+        String verificationUrl = "https://runam.africa/verify-user?token=" + token;
 
         String body = "Hi,\n\nPlease click the link below to verify your email. This link will expire in 3 hours:\n\n"
                 + verificationUrl + "\n\nThanks!";
