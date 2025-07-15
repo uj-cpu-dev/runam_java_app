@@ -106,5 +106,30 @@ public class UserService {
 
         userRepository.save(user);
     }
+
+    public void resendVerificationEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ApiException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        if (user.isEnabled()) {
+            throw new ApiException("User already verified", HttpStatus.BAD_REQUEST, "USER_ALREADY_VERIFIED");
+        }
+
+        String token = UUID.randomUUID().toString();
+
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), token);
+
+            verificationTokenRepository.deleteByUser(user);
+
+            VerificationToken verificationToken = new VerificationToken(
+                    token, user, Instant.now().plus(3, ChronoUnit.HOURS)
+            );
+            verificationTokenRepository.save(verificationToken);
+
+        } catch (MailException e) {
+            throw new ApiException("Failed to send verification email", HttpStatus.SERVICE_UNAVAILABLE, "EMAIL_SEND_FAILED");
+        }
+    }
 }
 

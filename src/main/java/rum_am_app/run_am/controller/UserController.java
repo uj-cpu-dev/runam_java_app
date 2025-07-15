@@ -126,4 +126,16 @@ public class UserController {
 
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse> resendVerification(@RequestParam("email") String email) {
+        try {
+            userService.resendVerificationEmail(email);
+            return ApiResponse.create("Verification email resent", HttpStatus.OK);
+        } catch (ApiException e) {
+            return ApiResponse.create(e.getMessage(), e.getStatus());
+        } catch (Exception e) {
+            return ApiResponse.create("Failed to resend verification email: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
