@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import rum_am_app.run_am.dtorequest.ResendRequest;
 import rum_am_app.run_am.dtorequest.UserLoginRequest;
 import rum_am_app.run_am.dtoresponse.ApiResponse;
 import rum_am_app.run_am.dtoresponse.AuthResponse;
@@ -149,14 +150,14 @@ public class UserController {
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<ApiResponse> resendVerification(@RequestParam("email") String email) {
+    public ResponseEntity<ApiResponse> resendVerification(@RequestBody ResendRequest request) {
         try {
-            userService.resendVerificationEmail(email);
+            userService.resendVerificationEmail(request.getEmail());
             return ApiResponse.create("Verification email resent", HttpStatus.OK);
         } catch (ApiException e) {
             return ApiResponse.create(e.getMessage(), e.getStatus());
         } catch (Exception e) {
-            return ApiResponse.create("Failed to resend verification email: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ApiResponse.create("Failed to resend verification email", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }
