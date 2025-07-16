@@ -42,12 +42,16 @@ public class UserController {
     private final JwtTokenProvider jwtTokenProvider;
 
     @GetMapping("/verify-email")
-    public ResponseEntity<ApiResponse> verifyEmail(@RequestParam String token) {
+    public ResponseEntity<AuthResponse> verifyEmail(@RequestParam String token, HttpServletResponse response) {
         VerificationToken verificationToken = verificationTokenRepository.findByToken(token)
                 .orElseThrow(() -> new ApiException("Invalid verification token", HttpStatus.BAD_REQUEST, "INVALID_TOKEN"));
 
         if (verificationToken.getExpiryDate().isBefore(Instant.now())) {
-            return ApiResponse.create("Your verification link has expired.", HttpStatus.BAD_REQUEST);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(AuthResponse.builder()
+                            .message("Your verification link has expired.")
+                            .build());
         }
 
         User user = verificationToken.getUser();
@@ -55,7 +59,25 @@ public class UserController {
         userRepository.save(user);
         verificationTokenRepository.delete(verificationToken);
 
-        return ApiResponse.create("Your email has been successfully verified!", HttpStatus.OK);
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), List.of("ROLE_USER"));
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getEmail());
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/api/auth/refresh")
+                .maxAge(Duration.ofDays(7))
+                .sameSite("Strict")
+                .build();
+
+        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return ResponseEntity.ok(AuthResponse.builder()
+                .accessToken(accessToken)
+                .email(user.getEmail())
+                .name(user.getName())
+                .avatarUrl(user.getAvatarUrl())
+                .build());
     }
 
     @PostMapping("/signup")
@@ -70,7 +92,7 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody UserLoginRequest request, HttpServletResponse response) {
-        User user = userService.login(request); // your existing logic
+        User user = userService.login(request);
 
         String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), List.of("ROLE_USER"));
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getEmail());
@@ -113,7 +135,6 @@ public class UserController {
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
-        // Clear the refresh token cookie
         ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
                 .secure(true)
