@@ -12,8 +12,6 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -89,25 +87,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
-    @Bean
-    public CommandLineRunner mongoConnectionLogger(MongoTemplate mongoTemplate) {
-        return args -> {
-            try {
-                String dbName = mongoTemplate.getDb().getName();
-                    logger.info("✅ Successfully connected to MongoDB database: {}", dbName);
-                logger.debug("Available collections: {}", mongoTemplate.getCollectionNames());
-
-                // Test connection with a ping command
-                mongoTemplate.executeCommand("{ ping: 1 }");
-                logger.info("🗂️ MongoDB ping successful");
-            } catch (Exception e) {
-                logger.error("❌ MongoDB connection failed", e);
-                throw e;
-            }
-        };
-    }
-
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
