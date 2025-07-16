@@ -131,9 +131,6 @@ jobs:
                 --name ${{ env.CONTAINER_NAME }} \
                 --network runam-net \
                 -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
-                -e MONGODB_URL='${{ secrets.MONGODB_URL }}' \
-                -e SPRING_DATA_MONGODB_URI='${{ secrets.MONGODB_URL }}/${{ env.MONGODB_DATABASE }}?authSource=admin' \
-                -e SPRING_DATA_MONGODB_DATABASE='${{ env.MONGODB_DATABASE }}' \
                 -e AWS_S3_BUCKET='${{ secrets.AWS_S3_BUCKET }}' \
                 -e AWS_REGION='${{ env.AWS_REGION }}' \
                 -e AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}' \
